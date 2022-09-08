@@ -1,0 +1,8 @@
+ax-platform
+botorch
+flask
+requests
+icecream
+python-dotenv
+supabase
+sqlalchemy

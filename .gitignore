@@ -1,0 +1,16 @@
+bbo-env
+data
+__pycache__
+tmp.py
+bo-env
+tmp2.py
+*.env
+.env
+*.json
+simbo-env
+.git
+configs
+api_formats
+backup_sim.py
+algorithms\cmaes
+algorithms\moo
