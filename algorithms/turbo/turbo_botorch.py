@@ -19,8 +19,8 @@ from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.priors import HorseshoePrior
-from pathlib import Path
 
+from pathlib import Path
 import sys
 import pickle
 
@@ -143,7 +143,7 @@ def format_responses(responses):
     Format responses from dict to tensor
     """
     pass
-class TurboRunner():
+class TurboRunner:
 
     def __init__(self, dim, batch_size, num_init, param_meta=None):
         self.dim = dim
@@ -153,15 +153,12 @@ class TurboRunner():
         self.bounds = self.get_bounds_from_param_meta()
         self.num_init = num_init
         self.minimize = True
-
+        self.total_runtime = 0
+        self.batch_runtimes = list()
     def format_x_for_mrp(self, xx):
         assert self.param_meta is not None
         assert self.bounds is not None
-  
-
         xx = unnormalize(xx, bounds=self.bounds)
-   
-
         xx_mrp = []
         for x in xx:
             x_mrp = []
@@ -179,18 +176,11 @@ class TurboRunner():
 
 
     def format_y_from_mrp(self, y_mrp):
-        yy = [list(y.values())[0] for y in y_mrp]
+
+        yy = torch.tensor([list(y.values())[0] for y in y_mrp])
         if self.minimize:
-            yy = [-y for y in yy]
-
-        # yy = []
-        # for y in y_mrp:
-
-        #     if isinstance(y, dict):
-        #         yy.append([v for k,v in y.items()])
-        #     else:
-        #         print("Error at format y in Turbo. Y is not List of Dicts")
-        return torch.tensor(yy)
+            yy = -1 * yy
+        return yy
          
 
 
@@ -241,6 +231,7 @@ class TurboRunner():
         return self.X_next 
 
     def complete(self, y):
+        # TODO: Make X and X_Next SAME AS SAASBO, same for Y, also rm hasattr if and make online
         self.Y_next  = torch.tensor(y,dtype=dtype, device=device).unsqueeze(-1)
         if not hasattr(self,"X_turbo"):
             self.X_turbo = self.X_next

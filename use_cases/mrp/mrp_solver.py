@@ -35,7 +35,7 @@ def bom_explode(child_id, quantity, period, parent_id='null'):
    
     if int(period) - int(_p_lead_time) < 0:
         print(f"Period Warning for Material {child_id}. Material Requirement Period is less than 0: {int(period) - int(_p_lead_time)}. Going to set Requirement Period to 1.")
-        #sys.exit("Periodic ERROR - MRP NOT POSSIBLE CAUSE HORIZONS TOO SHORT")
+        
     _per = max(int(period) - int(_p_lead_time), 1)
 
     if _per > 0:
