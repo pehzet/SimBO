@@ -155,6 +155,7 @@ class TurboRunner:
         self.minimize = True
         self.total_runtime = 0
         self.batch_runtimes = list()
+    
     def format_x_for_mrp(self, xx):
         assert self.param_meta is not None
         assert self.bounds is not None
@@ -173,7 +174,6 @@ class TurboRunner:
                 )
             xx_mrp.append(x_mrp)
         return xx_mrp
-
 
     def format_y_from_mrp(self, y_mrp):
 
@@ -205,8 +205,6 @@ class TurboRunner:
   
         model = SingleTaskGP(self.X_turbo, train_Y, covar_module=covar_module, likelihood=likelihood)
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
-
-        
 
         with gpytorch.settings.max_cholesky_size(float("inf")):
                 # Fit the model

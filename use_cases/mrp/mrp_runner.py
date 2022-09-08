@@ -70,9 +70,8 @@ def get_releases_from_results(results, materials, parameters):
 
     write_data_sorted_period = sorted(write_data,key=lambda x: x["period"])
 
-    
-
     return write_data_sorted_period
+
 def init_sheets(bom_id=1):
     sheet_id = os.getenv("SHEET_ID")
     file_pre = ""
@@ -141,8 +140,6 @@ def get_param_meta_from_materials(materials, format_type="ax"):
             
 
 def get_param_meta(bom_id=1):
-
-
     sheet_id = sheet_id = os.getenv("SHEET_ID")
     bom = formatDF(read_gsheet(sheet_id, "bom"))
 

@@ -71,11 +71,7 @@ class mrp_simulation:
         self.materials = copy.deepcopy(g.materials)
         self.bom = copy.deepcopy(g.bom)
         self.orders = copy.deepcopy(g.orders)
-        
-
-        
-
-
+  
     def run_simulation(self, releases):
       
         for r in releases:
@@ -151,8 +147,7 @@ class mrp_simulation:
             for o in orders_in_period:
 
                 m_id = str(o.get("id"))
-                
-                
+                                
                 if o["backorder"] == True:
                     penalty_cost_rate = [(m.get("penalty_cost_rate")) for m in self.materials if str(m.get("id")) == m_id][0]
                     self.costs.append(o.get("quantity")*penalty_cost_rate)

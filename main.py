@@ -17,8 +17,10 @@ if len(sys.argv) < 1 :
 else:
     experiment_id = sys.argv[1]
 
+# Dummy class for global variables
 class g:
     pass
+
 def get_experiment_config(experiment_id):
     fpath = "configs/config" + str(experiment_id) +".json"
     with open(fpath, 'r') as file:
@@ -26,23 +28,23 @@ def get_experiment_config(experiment_id):
     print("Config loaded")
     return config
 
-
 def get_algorithm(algorithm_config:dict, param_meta:dict):
     algorithm = algorithm_config.get("strategy", algorithm_config.get("algorithm")).lower()
 
     if algorithm == "turbo":
-
         num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
         batch_size = algorithm_config.get("batch_size")
         num_batches = algorithm_config.get("num_batches")
         g.num_batches = num_batches
         return TurboRunner(len(param_meta),batch_size, num_init, param_meta=param_meta)
+
     if algorithm == "gpei":
         num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
         batch_size = algorithm_config.get("batch_size")
         num_batches = algorithm_config.get("num_batches")
         g.num_batches = num_batches
         return GPEIRunner(len(param_meta),batch_size, num_init, param_meta=param_meta)
+
     if algorithm == "saasbo":
         num_batches = algorithm_config.get("num_batches")
         g.num_batches = num_batches
@@ -78,7 +80,6 @@ def run_optimization_loop(experiment_id):
     y = [mrp_simulation().run_simulation(release) for release in releases]
     y = runner.format_y_from_mrp(y)
  
-
     runner.complete(y)
 
     for _ in range(g.num_batches):
