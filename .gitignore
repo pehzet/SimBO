@@ -14,3 +14,4 @@ api_formats
 backup_sim.py
 algorithms\cmaes
 algorithms\moo
+algorithms\bo
