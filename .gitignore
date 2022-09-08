@@ -6,6 +6,7 @@ bo-env
 tmp2.py
 *.env
 .env
+env
 *.json
 simbo-env
 .git
@@ -15,3 +16,4 @@ backup_sim.py
 algorithms\cmaes
 algorithms\moo
 algorithms\bo
+notes.txt
