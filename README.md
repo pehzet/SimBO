@@ -1,5 +1,5 @@
 # SimBO
-Simulation Based Optimization in Python using Model-based Optimization Algorithm
+Simulation Based Optimization in Python using Model-based Optimization Algorithms
 
 ## TODOS to make it run
 - Install requirement.txt (ATTENTION! No Versions provided - will install the newest)
