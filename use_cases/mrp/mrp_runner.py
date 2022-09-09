@@ -1,10 +1,10 @@
 
 # from utils import *
 import os
-import sys
+import logging
+logger = logging.getLogger("mrp")
+
 # from main import run_solver
-from icecream import ic
-import pandas as pd
 from pandas import DataFrame
 from utils.gsheet_utils import read_gsheet, formatDF
 from use_cases.mrp.mrp_solver import run_mrp
@@ -80,7 +80,7 @@ def init_sheets(bom_id=1):
     materials = filter_relevant_materials(bom, bom_id, formatDF(read_gsheet(sheet_id, "materials")))
     orders = filter_relevant_materials(bom, bom_id,formatDF(read_gsheet(sheet_id, "demand")))
     inventory = filter_relevant_materials(bom, bom_id,formatDF(read_gsheet(sheet_id, "inventory")))
-    print("Sheets initialized")
+    logger.info("Sheets initialized")
     return bom, materials, orders, inventory
 
 
@@ -194,8 +194,10 @@ def run_solver(params):
         releases = get_releases_from_results(mrp_results,g.materials, params)
         return releases
     except Exception as e:
-        print("Error at MRP Run")
-        print(traceback.format_exc())
+        logger.error(f"Error at MRP Run: {traceback.format_exc()}")
+        
+        #print("Error at MRP Run")
+        #print(traceback.format_exc())
      
         return None
 

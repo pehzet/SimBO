@@ -1,4 +1,6 @@
-import os
+import logging
+logger = logging.getLogger("gpei")
+
 import torch
 from botorch import fit_gpytorch_model
 from botorch.models import FixedNoiseGP, ModelListGP
@@ -15,7 +17,10 @@ import pickle
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dtype = torch.double
+
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
+
+logger.info(f"Running on device: {device}")
 
 class GPEIRunner():
     def __init__(self, experiment_id, dim, batch_size, num_init, param_meta):

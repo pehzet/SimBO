@@ -1,12 +1,9 @@
-from icecream import ic
-import csv
 import copy
 import sys
-import pandas as pd
-import numpy as np
 import traceback
+import logging
 
-
+logger = logging.getLogger("mrp")
 
 def creategrossReqArray():
     grossReq = []
@@ -34,7 +31,8 @@ def bom_explode(child_id, quantity, period, parent_id='null'):
             [p.get('value', 0) for p in g.parameters if p.get('id') == parent_id and p.get('name') == 'safety_time'][0])
    
     if int(period) - int(_p_lead_time) < 0:
-        print(f"Period Warning for Material {child_id}. Material Requirement Period is less than 0: {int(period) - int(_p_lead_time)}. Going to set Requirement Period to 1.")
+        logger.warning(f"Period Warning for Material {child_id}. Material Requirement Period is less than 0: {int(period) - int(_p_lead_time)}. Going to set Requirement Period to 1.")
+        #print(f"Period Warning for Material {child_id}. Material Requirement Period is less than 0: {int(period) - int(_p_lead_time)}. Going to set Requirement Period to 1.")
         
     _per = max(int(period) - int(_p_lead_time), 1)
 
@@ -51,12 +49,10 @@ def bom_explode(child_id, quantity, period, parent_id='null'):
         bom_explode(child.get("child_id"), _quant *float(child.get("quantity")), _per, _parent_id)
   
 
-
 def cleangrossReq():
     for gr in g.grossReq:
         if sum(gr.get('values')) == 0:
             g.grossReq.remove(gr)
-
 
 def calcNetRequirements():
     netReq = copy.deepcopy(g.grossReq)
@@ -100,7 +96,8 @@ def releaseOrders():
         for o in range(len(nr.get('values'))):
             if nr.get('values')[o] > 0:
                 if int(o - _leadTime - _safety_time) < 0:
-                    print(f"Period Warning for Material {nr.get('id')}. Material Purchase Period is less than 0: {(o - _leadTime - _safety_time)}. Going to place it at Period 0.")
+                    logger.warning(f"Period Warning for Material {nr.get('id')}. Material Purchase Period is less than 0: {(o - _leadTime - _safety_time)}. Going to place it at Period 0.")
+                    #print(f"Period Warning for Material {nr.get('id')}. Material Purchase Period is less than 0: {(o - _leadTime - _safety_time)}. Going to place it at Period 0.")
                 _ro[max(int(o - _leadTime - _safety_time), 0)] = nr.get('values')[o]
 
         _rod = {'id': nr.get('id'), 'values': _ro}
@@ -131,10 +128,9 @@ def getMRPResults():
 class g:
     pass
 
-
-
 def run_mrp(bom, materials, orders, inventory, parameters, horizon=100):
-    print("Starting MRP")
+    logger.debug("Starting MRP run...")
+    #print("Starting MRP")
     # first define and get the global variables
     g.planningHorizon = horizon
     g.bom = bom
@@ -163,28 +159,29 @@ def run_mrp(bom, materials, orders, inventory, parameters, horizon=100):
         for o in g.orders:
             bom_explode(str(o.get("id")), o.get("quantity"), o.get("period"))
     except BaseException as e:
-        print(traceback.format_exc())
+        logger.error(traceback.format_exc())
+        #print(traceback.format_exc())
         sys.exit()
     # cleangrossReq()
     try:
         g.netRequirements = calcNetRequirements()
     except BaseException as e:
-        print(traceback.format_exc())
+        logger.error(traceback.format_exc())
+        #print(traceback.format_exc())
         sys.exit()
     try:        
         g.releasedOrders = releaseOrders()
-
     except BaseException as e:
-        print(traceback.format_exc())
+        logger.error(traceback.format_exc())
+        #print(traceback.format_exc())
         sys.exit()
     try:
         mrpResults = getMRPResults()
       
     except BaseException as e:
-        print(traceback.format_exc())
+        logger.error(traceback.format_exc())
+        #print(traceback.format_exc())
         sys.exit()
 
 
     return mrpResults
-
-
