@@ -1,4 +1,5 @@
 import re
+
 def camel_to_snake(name:str):
     name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
@@ -15,5 +16,3 @@ def snake_to_camel(name:str, first_upper = False):
 def calc_num_arms_from_name(arm_name: str, init_trials: int, batch_size: int):
     current_trial, current_arm = arm_name.split("_")
     return init_trials + ((int(current_trial) - init_trials) * batch_size) + int(current_arm) 
-
-

@@ -1,6 +1,6 @@
-import os
+import logging
+logger = logging.getLogger("saasbo")
 
-import numpy as np
 import torch
 
 from botorch import fit_fully_bayesian_model_nuts
@@ -20,6 +20,9 @@ from icecream import ic
 
 dtype = torch.double
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+#logger.info(f"Running on device: {device}")
+
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
 
 def get_initial_points(dim, n_pts, seed=0):
@@ -121,13 +124,12 @@ class SaasboRunner:
     def complete(self, y):
         self.Y_next  = torch.tensor(y,dtype=dtype, device=device).unsqueeze(-1)
         self.Y = self.Y_next if self.Y == None else torch.cat((self.Y, self.Y_next))
-        
      
     def terminate_experiment(self):
-        print(f"Best Value found:  {max(self.Y).item()}")
-        print(str(self.experiment_id))
+        logger.info(f"Best Value found:  {max(self.Y).item()}")
+        #print(str(self.experiment_id))
         path = "data/experiment_" + str(self.experiment_id)
-        print(path)
+        #print(path)
         Path(path).mkdir(parents=True, exist_ok=True)
         with open((path + "/" + str(self.experiment_id) + "_saasbo_runner.pkl"), "wb") as fo:
             pickle.dump(self, fo)

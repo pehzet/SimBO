@@ -1,12 +1,11 @@
 import random
 import math
 import copy
-from icecream import ic
-import sys
+import logging
+logger = logging.getLogger("sim")
+
 class g:
     pass
-
-
 
 def init_mrp_sim(bom, materials, orders, sim_time=100):
     g.bom = bom 
@@ -24,7 +23,7 @@ def get_bom_childs_with_quantity(parent_id, parent_quantity, bom):
         if parent_id.startswith("M") or parent_id.startswith("O"):
             parent_id = parent_id.split("_")[1]
         else:
-            print("ERROR: SOMETHING WRONG WITH PARENT ID")
+            logging.error("SOMETHING WRONG WITH PARENT ID")
 
     children = [b for b in bom if str(b["parent_id"]) == str(parent_id)]
     bom_children_with_quant = []
@@ -46,7 +45,7 @@ def sample_lead_time_delay(method="discrete"):
         return value[0]
     if method == "deterministic" or method == None:
         return 0
-    print("No method for sample lead time delay selected. Return 0")
+    logging.warn("No method for sample lead time delay selected. Return 0")
     return 0
 
 def sample_quantity_reduction(quantity, method="discrete"):
@@ -57,7 +56,7 @@ def sample_quantity_reduction(quantity, method="discrete"):
         return value[0]
     if method == "deterministic" or method == None:
         return 0
-    print("No method for sample quantity reduction selected. Return 0")
+    logging.warn("No method for sample quantity reduction selected. Return 0")
     return 0
 
 all_order_ids = []
@@ -179,13 +178,12 @@ class mrp_simulation:
                     _fulfill_quant = o.get("quantity")
                     self.fulfilled_orders.append(o.get("order_id"))
                 else:
-                    print("Mistake at Order Fulfillment. Let order pass")
-                    
+                    logging.error("Mistake at Order Fulfillment. Let order pass.")
 
         assert len(self.costs) > 0 and len(self.sl) > 0
-        print(f"Finished with costs: {int(sum(self.costs))} and service level : {float(int((sum(self.sl)/len(self.sl))*100)/100)} ")
+        logging.debug(f"Finished with costs: {int(sum(self.costs))} and service level : {float(int((sum(self.sl)/len(self.sl))*100)/100)} ")
+        
         #return({"costs" : int(sum(self.costs)), "service_level" : float(int((sum(self.sl)/len(self.sl))*100)/100)})
-
 
         return {"costs" : int(sum(self.costs))}
 

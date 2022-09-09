@@ -1,8 +1,11 @@
-import os
+import logging
+logger = logging.getLogger("turbo")
+
+import pickle
 import math
+
 from dataclasses import dataclass
-from pyclbr import Function
-from icecream import ic
+
 import torch
 from botorch.acquisition import qExpectedImprovement
 from botorch.fit import fit_gpytorch_model
@@ -19,14 +22,7 @@ from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.priors import HorseshoePrior
-
 from pathlib import Path
-import sys
-import pickle
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-dtype = torch.double
-SMOKE_TEST = os.environ.get("SMOKE_TEST")
 
 
 @dataclass
@@ -48,7 +44,7 @@ class TurboState:
             max([4.0 / self.batch_size, float(self.dim) / self.batch_size])
         )
 
-
+# TODO: Move to TurboState?!
 def update_state(state, Y_next):
     if max(Y_next) > state.best_value + 1e-3 * math.fabs(state.best_value):
         state.success_counter += 1
@@ -69,15 +65,7 @@ def update_state(state, Y_next):
         state.restart_triggered = True
     return state
 
-# def check_state():
-#     state = TurboState(dim=dim, batch_size=batch_size)
-#     print(state)
-def get_initial_points(dim, n_pts, seed=0):
-
-    sobol = SobolEngine(dimension=dim, scramble=True, seed=seed)
-    X_init = sobol.draw(n=n_pts).to(dtype=dtype, device=device)
-    return X_init
-
+# TODO: Move to TurboRunner?!
 def generate_batch(
     state,
     model,  # GP model
@@ -88,6 +76,8 @@ def generate_batch(
     num_restarts=10,
     raw_samples=512,
     acqf="ts",  # "ei" or "ts"
+    device="cpu",
+    dtype=torch.double
 ):
     assert acqf in ("ts", "ei")
     assert X.min() >= 0.0 and X.max() <= 1.0 and torch.all(torch.isfinite(Y))
@@ -138,14 +128,10 @@ def generate_batch(
 
     return X_next
 
-def format_responses(responses):
-    """
-    Format responses from dict to tensor
-    """
-    pass
+
 class TurboRunner:
 
-    def __init__(self, experiment_id, dim, batch_size, num_init, param_meta=None):
+    def __init__(self, experiment_id, dim, batch_size, num_init, param_meta=None, device="cpu", dtype=torch.double):
         self.experiment_id = experiment_id
         self.dim = dim
         self.batch_size = batch_size
@@ -164,6 +150,11 @@ class TurboRunner:
         self.budget_at_restart = list()
         self.eval_budget = 10000 # TODO: CHANGE
         self.eval_runtimes_second = list()
+        self.seed = 0
+        self.device=device
+        self.dtype=dtype
+
+        logger.info(f"Running on device: {self.device} and dtype: {self.dtype}")
     
     def format_x_for_mrp(self, xx):
         assert self.param_meta is not None
@@ -190,8 +181,6 @@ class TurboRunner:
         if self.minimize:
             yy = -1 * yy
         return yy
-         
-
 
     def get_bounds_from_param_meta(self):
         '''
@@ -206,17 +195,15 @@ class TurboRunner:
         return bounds
 
     def restart_state(self):                
-        print(f"Retart of State {self.num_restarts} triggered")
+        logger.info(f"{self.num_restarts}. of TR triggered")
         self.num_restarts +=1
-        self.budget_at_restart.append(self.budget)
+        self.budget_at_restart.append(self.eval_budget)
         self.terminate_experiment()
         self.state = TurboState(dim=self.dim, batch_size=self.batch_size)
         self.X = None
         self.Y = None
         self.X_next = None
         self.Y_next = None
-        
-
 
     def suggest(self, acqf="ts"):
         if self.state.restart_triggered:
@@ -247,16 +234,20 @@ class TurboRunner:
                 num_restarts=10,
                 raw_samples=512,
                 acqf=acqf,
+                device=self.device,
+                dtype=self.dtype
             )
         return self.X_next
 
     def suggest_initial(self):
-        self.X_next  = get_initial_points(self.dim, self.num_init)
-        return self.X_next 
+        logger.debug("Suggesting >{self.num_init} points.")
+        sobol = SobolEngine(dimension=self.dim, scramble=True, seed=self.seed)
+        self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
+        return self.X_next
 
     def complete(self, y):
         # TODO: Make X and X_Next SAME AS SAASBO, same for Y, also rm hasattr if and make online
-        self.Y_next  = torch.tensor(y,dtype=dtype, device=device).unsqueeze(-1)
+        self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
         if not hasattr(self,"X_turbo"):
             self.X_turbo = self.X_next
         else:
@@ -270,11 +261,12 @@ class TurboRunner:
     def terminate_experiment(self):
         if self.state.restart_triggered:
             best_value = self.state.best_value * -1 if self.minimize else self.state.best_value
-            print(f"Best Value at current State: {best_value:.2f}")
+            logger.info(f"Best Value at current State: {best_value:.2f}")
+            #print(f"Best Value at current State: {best_value:.2f}")
 
         best_value = self.state.best_value * -1 if self.minimize else self.state.best_value
-        print(f"Best Value found: {best_value:.2f}")
-
+        logger.info(f"Best Value found: {best_value:.2f}")
+    
         _name_state = "_turbo_state_" + str(self.num_restarts +1) + ".pkl"
         _name_runner = "_turbo_runner_" + str(self.num_restarts +1) + ".pkl"
         path = f"data/experiment_{self.experiment_id}"
@@ -282,6 +274,4 @@ class TurboRunner:
         with open((path +"/" + str(self.experiment_id) + _name_state), "wb") as fo:
             pickle.dump(self.state, fo)
         with open((path +"/" + str(self.experiment_id) + _name_runner), "wb") as fo:
-            pickle.dump(self, fo)
-
-        
+            pickle.dump(self, fo)      

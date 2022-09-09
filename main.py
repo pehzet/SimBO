@@ -1,4 +1,18 @@
 # Main File for Cluster Experiments
+
+# Logging and warnings
+import warnings
+import logging
+logging.basicConfig(
+    level = logging.INFO,
+    format = '%(asctime)s: %(levelname)s: %(name)s : %(message)s'
+    )
+
+logger = logging.getLogger("main")
+
+# Surpress PyTorch warning
+warnings.filterwarnings("ignore", message="To copy construct from a tensor, it is") 
+
 from locale import normalize
 import sys
 import json
@@ -11,17 +25,17 @@ from algorithms.saasbo.saasbo_botorch import SaasboRunner
 from algorithms.gpei.gpei_botorch import GPEIRunner
 from use_cases.mrp.mrp_runner import get_param_meta_from_materials, run_solver, init_sheets, get_param_meta, init_mrp_runner
 from use_cases.mrp.mrp_sim import mrp_simulation, init_mrp_sim #run_simulation
-#from utils.ax_utils import *
 
-from icecream import ic
 import time
+
+import torch
+tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
+
 if len(sys.argv) < 1 :
     print("Please provide experiment ID")
     sys.exit()
 else:
     experiment_id = sys.argv[1]
-
-
 
 class ExperimentRunner:
     def __init__(self, experiment_id):
@@ -48,7 +62,8 @@ class ExperimentRunner:
         fpath = "configs/config" + str(self.experiment_id) +".json"
         with open(fpath, 'r') as file:
             config = json.load(file)
-        print("Config loaded")
+        #print("Config loaded")
+        logger.info(f"Configuration for experiment >{self.experiment_id}< successfully loaded.")
         return config
 
     def get_algorithm(self, algorithm_config:dict, param_meta:dict):
@@ -58,7 +73,7 @@ class ExperimentRunner:
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             batch_size = algorithm_config.get("batch_size")
             self.num_batches = algorithm_config.get("num_batches")
-            return TurboRunner(experiment_id, len(param_meta),batch_size, num_init, param_meta=param_meta)
+            return TurboRunner(experiment_id, len(param_meta),batch_size, num_init, param_meta=param_meta, device=tkwargs["device"], dtype=tkwargs["dtype"])
         if self.algorithm == "gpei":
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             batch_size = algorithm_config.get("batch_size")
@@ -104,7 +119,8 @@ class ExperimentRunner:
             Path(ffolder).mkdir(parents=True, exist_ok=True)
         with open(fpath, 'w+') as fo:
             json.dump(obj, fo)
-        print(f"Experiment File saved to {fpath}")
+        logger.info(f"Experiment data saved to >{fpath}<")
+        #print(f"Experiment File saved to {fpath}")
     
 
     def append_candidat_to_candidates_list(self, x,y):
@@ -135,6 +151,7 @@ class ExperimentRunner:
             return self.runner.num_restarts + 1
         else:
             return None
+
     def get_best_candidat(self):
         # TODO: make oneline?
         ys= list()
@@ -143,6 +160,7 @@ class ExperimentRunner:
         # NOTE: is minimize
         best = self.candidates[pd.DataFrame(ys).idxmin()[0]]
         return best
+
     def run_optimization_loop(self, ):
         _start = time.monotonic()
         self.experiment_start_dts = datetime.now().isoformat()
