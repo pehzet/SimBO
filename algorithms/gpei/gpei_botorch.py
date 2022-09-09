@@ -12,12 +12,14 @@ from botorch.utils.transforms import unnormalize, normalize
 from pathlib import Path
 import pickle
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dtype = torch.double
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
 
 class GPEIRunner():
-    def __init__(self, dim, batch_size, num_init, param_meta):
+    def __init__(self, experiment_id, dim, batch_size, num_init, param_meta):
+        self.experiment_id = experiment_id
         self.dim = dim
         self.batch_size = batch_size
         self.num_init = num_init
@@ -27,6 +29,8 @@ class GPEIRunner():
         self.Y = None
         self.minimize = True
         self.batch_runtimes = list()
+        self.eval_budget = 1000
+        self.eval_runtimes_second = list()
     def get_bounds_from_param_meta(self):
         '''
         expects list of dicts with key lower_bound: int and upper_bound: int or bounds: (int, int)
@@ -92,9 +96,10 @@ class GPEIRunner():
         self.Y_next  = torch.tensor(y,dtype=dtype, device=device).unsqueeze(-1)
         self.Y = self.Y_next if self.Y == None else torch.cat((self.Y, self.Y_next))
 
-    def terminate_experiment(self, experiment_id):
+    def terminate_experiment(self):
+        best_value = max(self.Y).item() * -1 if self.minimize else max(self.Y).item() 
         print(f"Best Value found:  {max(self.Y).item()}")
-        path = f"data/experiment_{str(experiment_id)}"
+        path = f"data/experiment_{str(self.experiment_id)}"
         Path(path).mkdir(parents=True, exist_ok=True)
-        with open((path + "/" + str(experiment_id) + "_gpei_runner.pkl"), "wb") as fo:
+        with open((path + "/" + str(self.experiment_id) + "_gpei_runner.pkl"), "wb") as fo:
             pickle.dump(self, fo)

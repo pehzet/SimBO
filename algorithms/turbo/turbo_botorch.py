@@ -145,16 +145,25 @@ def format_responses(responses):
     pass
 class TurboRunner:
 
-    def __init__(self, dim, batch_size, num_init, param_meta=None):
+    def __init__(self, experiment_id, dim, batch_size, num_init, param_meta=None):
+        self.experiment_id = experiment_id
         self.dim = dim
         self.batch_size = batch_size
-        self.state = TurboState(dim=dim, batch_size=batch_size)
+        self.state = TurboState(dim=self.dim, batch_size=self.batch_size)
         self.param_meta = param_meta
         self.bounds = self.get_bounds_from_param_meta()
         self.num_init = num_init
+        self.X = None
+        self.Y = None
+        self.X_next = None
+        self.Y_next = None
         self.minimize = True
         self.total_runtime = 0
         self.batch_runtimes = list()
+        self.num_restarts = 0
+        self.budget_at_restart = list()
+        self.eval_budget = 10000 # TODO: CHANGE
+        self.eval_runtimes_second = list()
     
     def format_x_for_mrp(self, xx):
         assert self.param_meta is not None
@@ -196,7 +205,24 @@ class TurboRunner:
         bounds = torch.tensor([lb, ub])
         return bounds
 
+    def restart_state(self):                
+        print(f"Retart of State {self.num_restarts} triggered")
+        self.num_restarts +=1
+        self.budget_at_restart.append(self.budget)
+        self.terminate_experiment()
+        self.state = TurboState(dim=self.dim, batch_size=self.batch_size)
+        self.X = None
+        self.Y = None
+        self.X_next = None
+        self.Y_next = None
+        
+
+
     def suggest(self, acqf="ts"):
+        if self.state.restart_triggered:
+            self.restart_state()
+            self.X_next = self.suggest_initial()
+            return self.X_next
         train_Y = (self.Y_turbo - self.Y_turbo.mean()) / self.Y_turbo.std()
         likelihood = GaussianLikelihood(noise_constraint=Interval(1e-8, 1e-3))
         covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
@@ -239,16 +265,23 @@ class TurboRunner:
             self.Y_turbo = self.Y_next 
         else:
             self.Y_turbo = torch.cat((self.Y_turbo, self.Y_next), dim=0)
-
         self.state = update_state(state=self.state, Y_next=self.Y_next)
 
-    def terminate_experiment(self, experiment_id):
-        print(f"Best Value found: {self.state.best_value:.2f}")
-        path = f"data/experiment_{experiment_id}"
+    def terminate_experiment(self):
+        if self.state.restart_triggered:
+            best_value = self.state.best_value * -1 if self.minimize else self.state.best_value
+            print(f"Best Value at current State: {best_value:.2f}")
+
+        best_value = self.state.best_value * -1 if self.minimize else self.state.best_value
+        print(f"Best Value found: {best_value:.2f}")
+
+        _name_state = "_turbo_state_" + str(self.num_restarts +1) + ".pkl"
+        _name_runner = "_turbo_runner_" + str(self.num_restarts +1) + ".pkl"
+        path = f"data/experiment_{self.experiment_id}"
         Path(path).mkdir(parents=True, exist_ok=True)
-        with open((path + "/_turbo_state.pkl"), "wb") as fo:
+        with open((path +"/" + str(self.experiment_id) + _name_state), "wb") as fo:
             pickle.dump(self.state, fo)
-        with open((path + "/_turbo_runner.pkl"), "wb") as fo:
+        with open((path +"/" + str(self.experiment_id) + _name_runner), "wb") as fo:
             pickle.dump(self, fo)
 
         

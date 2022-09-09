@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import torch
+
 from botorch import fit_fully_bayesian_model_nuts
 from botorch.acquisition import qExpectedImprovement
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
@@ -28,7 +29,9 @@ def get_initial_points(dim, n_pts, seed=0):
 
 
 class SaasboRunner:
-    def __init__(self, dim, num_init, batch_size, warmup_steps,num_samples,thinning, param_meta=None):
+    def __init__(self, experiment_id, dim, num_init, batch_size, warmup_steps,num_samples,thinning, param_meta=None):
+        
+        self.experiment_id = experiment_id,
         self.dim: int = dim
         self.num_init: int= num_init
         self.batch_size: int = batch_size
@@ -44,6 +47,9 @@ class SaasboRunner:
         self.minimize= True
         self.total_runtime = 0
         self.batch_runtimes = list()
+        self.eval_budget = 1000
+        self.eval_runtimes_second = list()
+
 
     def format_x_for_mrp(self, xx):
         assert self.param_meta is not None
@@ -117,9 +123,11 @@ class SaasboRunner:
         self.Y = self.Y_next if self.Y == None else torch.cat((self.Y, self.Y_next))
         
      
-    def terminate_experiment(self, experiment_id):
+    def terminate_experiment(self):
         print(f"Best Value found:  {max(self.Y).item()}")
-        path = f"data/experiment_{str(experiment_id)}"
+        print(str(self.experiment_id))
+        path = "data/experiment_" + str(self.experiment_id)
+        print(path)
         Path(path).mkdir(parents=True, exist_ok=True)
-        with open((path + "/" + str(experiment_id) + "_saasbo_runner.pkl"), "wb") as fo:
+        with open((path + "/" + str(self.experiment_id) + "_saasbo_runner.pkl"), "wb") as fo:
             pickle.dump(self, fo)
