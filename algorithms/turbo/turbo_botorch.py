@@ -21,7 +21,6 @@ from gpytorch.constraints import Interval
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
-from gpytorch.priors import HorseshoePrior
 from pathlib import Path
 
 
@@ -43,27 +42,27 @@ class TurboState:
         self.failure_tolerance = math.ceil(
             max([4.0 / self.batch_size, float(self.dim) / self.batch_size])
         )
+    
+    def update_state(self, Y_next):
+        if max(Y_next) > self.best_value + 1e-3 * math.fabs(self.best_value):
+            self.success_counter += 1
+            self.failure_counter = 0
+        else:
+            self.success_counter = 0
+            self.failure_counter += 1
 
-# TODO: Move to TurboState?!
-def update_state(state, Y_next):
-    if max(Y_next) > state.best_value + 1e-3 * math.fabs(state.best_value):
-        state.success_counter += 1
-        state.failure_counter = 0
-    else:
-        state.success_counter = 0
-        state.failure_counter += 1
+        if self.success_counter == self.success_tolerance:  # Expand trust region
+            self.length = min(2.0 * self.length, self.length_max)
+            self.success_counter = 0
+        elif self.failure_counter == self.failure_tolerance:  # Shrink trust region
+            self.length /= 2.0
+            self.failure_counter = 0
 
-    if state.success_counter == state.success_tolerance:  # Expand trust region
-        state.length = min(2.0 * state.length, state.length_max)
-        state.success_counter = 0
-    elif state.failure_counter == state.failure_tolerance:  # Shrink trust region
-        state.length /= 2.0
-        state.failure_counter = 0
+        self.best_value = max(self.best_value, max(Y_next).item())
+        if self.length < self.length_min:
+            self.restart_triggered = True
+        return self
 
-    state.best_value = max(state.best_value, max(Y_next).item())
-    if state.length < state.length_min:
-        state.restart_triggered = True
-    return state
 
 # TODO: Move to TurboRunner?!
 def generate_batch(
@@ -195,7 +194,7 @@ class TurboRunner:
         return bounds
 
     def restart_state(self):                
-        logger.info(f"{self.num_restarts}. of TR triggered")
+        logger.info(f"{self.num_restarts}. start of TR triggered")
         self.num_restarts +=1
         self.budget_at_restart.append(self.eval_budget)
         self.terminate_experiment()
@@ -239,6 +238,11 @@ class TurboRunner:
             )
         return self.X_next
 
+    # TODO: Implement as class method...
+    def generate_batch(model, train_Y):
+        pass
+
+
     def suggest_initial(self):
         logger.debug("Suggesting >{self.num_init} points.")
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=self.seed)
@@ -256,7 +260,7 @@ class TurboRunner:
             self.Y_turbo = self.Y_next 
         else:
             self.Y_turbo = torch.cat((self.Y_turbo, self.Y_next), dim=0)
-        self.state = update_state(state=self.state, Y_next=self.Y_next)
+        self.state.update_state(Y_next=self.Y_next)
 
     def terminate_experiment(self):
         if self.state.restart_triggered:
