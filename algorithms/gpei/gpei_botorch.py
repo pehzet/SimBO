@@ -15,15 +15,8 @@ from pathlib import Path
 import pickle
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-dtype = torch.double
-
-tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
-
-logger.info(f"Running on device: {device}")
-
 class GPEIRunner():
-    def __init__(self, experiment_id, dim, batch_size, num_init, param_meta):
+    def __init__(self, experiment_id, dim, batch_size, num_init, param_meta, device, dtype):
         self.experiment_id = experiment_id
         self.dim = dim
         self.batch_size = batch_size
@@ -36,6 +29,11 @@ class GPEIRunner():
         self.batch_runtimes = list()
         self.eval_budget = 1000
         self.eval_runtimes_second = list()
+        self.device = device
+        self.dtype = dtype
+
+        logger.info(f"Running on device: {self.device}")
+
     def get_bounds_from_param_meta(self):
         '''
         expects list of dicts with key lower_bound: int and upper_bound: int or bounds: (int, int)
@@ -45,7 +43,11 @@ class GPEIRunner():
         ub = [pm.get("upper_bound") for pm in self.param_meta]
         #bounds = [(pm.get("lower_bound",pm.get("bounds")[0]) , pm.get("upper_bound",pm.get("bounds")[1])) for pm in self.param_meta]
         bounds = torch.tensor([lb, ub])
+        logger.debug(f"Parameter bounds: {bounds}")
         return bounds
+
+    
+    # TODO: Outsource from algorithm to optimzation loop runner
     def format_x_for_mrp(self, xx):
         assert self.param_meta is not None
         assert self.bounds is not None
@@ -65,19 +67,21 @@ class GPEIRunner():
         return xx_mrp
 
 
+    # TODO: Outsource from algorithm to optimzation loop runner
     def format_y_from_mrp(self, y_mrp):
         yy = torch.tensor([list(y.values())[0] for y in y_mrp])
         if self.minimize:
             yy = -1 * yy
         return yy
+
     def suggest_initial(self, seed=0):
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=seed)
-        self.X_next = sobol.draw(n=self.num_init).to(dtype=dtype, device=device)
+        self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
         self.X = self.X_next if self.X == None else self.X
+        logger.debug(f"Initial SOBOL candidates: {self.X_next}")
         return self.X_next
 
     def suggest(self, _acqf = "qEI"):
-    
         gp = FixedNoiseGP(self.X, self.Y, train_Yvar=torch.full_like(self.Y, 1e-6))
         mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
         fit_gpytorch_model(mll=mll)
@@ -88,22 +92,23 @@ class GPEIRunner():
 
         self.X_next, _ = optimize_acqf(
             acq_function=acqf,
-            bounds=torch.cat((torch.zeros(1, self.dim), torch.ones(1, self.dim))).to(**tkwargs),
+            bounds=torch.cat((torch.zeros(1, self.dim), torch.ones(1, self.dim))).to(dtype=self.dtype, device=self.device),
             q=self.batch_size,
             num_restarts=10,
             raw_samples=1024,
         )
         self.X = torch.cat((self.X, self.X_next))
+        logger.debug(f"Next suggested candidate(s) (GP/{_acqf}): {self.X_next}")
         return self.X_next
-    
 
     def complete(self, y):
-        self.Y_next  = torch.tensor(y,dtype=dtype, device=device).unsqueeze(-1)
+        self.Y_next  = torch.tensor(y,dtype=self.dtype, device=self.device).unsqueeze(-1)
         self.Y = self.Y_next if self.Y == None else torch.cat((self.Y, self.Y_next))
+        logger.debug(f"Completed candidate: {self.Y_next}")
 
     def terminate_experiment(self):
         best_value = max(self.Y).item() * -1 if self.minimize else max(self.Y).item() 
-        print(f"Best Value found:  {max(self.Y).item()}")
+        logger.info(f"Best value found:  {best_value}")
         path = f"data/experiment_{str(self.experiment_id)}"
         Path(path).mkdir(parents=True, exist_ok=True)
         with open((path + "/" + str(self.experiment_id) + "_gpei_runner.pkl"), "wb") as fo:

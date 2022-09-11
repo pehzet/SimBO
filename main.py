@@ -78,7 +78,7 @@ class ExperimentRunner:
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             batch_size = algorithm_config.get("batch_size")
             self.num_batches = algorithm_config.get("num_batches")
-            return GPEIRunner(experiment_id, len(param_meta),batch_size, num_init, param_meta=param_meta)
+            return GPEIRunner(experiment_id, len(param_meta),batch_size, num_init, param_meta=param_meta, device=tkwargs["device"], dtype=tkwargs["dtype"])
         if self.algorithm == "saasbo":
             self.num_batches = algorithm_config.get("num_batches")
             warmup_steps = algorithm_config.get("warmup_steps", 512)
