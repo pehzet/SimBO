@@ -34,6 +34,7 @@ class GPEIRunner():
 
         logger.info(f"Running on device: {self.device}")
 
+    # TODO: Outsource from algorithm to optimzation loop runner
     def get_bounds_from_param_meta(self):
         '''
         expects list of dicts with key lower_bound: int and upper_bound: int or bounds: (int, int)
@@ -45,7 +46,6 @@ class GPEIRunner():
         bounds = torch.tensor([lb, ub])
         logger.debug(f"Parameter bounds: {bounds}")
         return bounds
-
     
     # TODO: Outsource from algorithm to optimzation loop runner
     def format_x_for_mrp(self, xx):
@@ -108,7 +108,7 @@ class GPEIRunner():
 
     def terminate_experiment(self):
         best_value = max(self.Y).item() * -1 if self.minimize else max(self.Y).item() 
-        logger.info(f"Best value found:  {best_value}")
+        logger.info(f"Experiment terminated. Best value:  {best_value}")
         path = f"data/experiment_{str(self.experiment_id)}"
         Path(path).mkdir(parents=True, exist_ok=True)
         with open((path + "/" + str(self.experiment_id) + "_gpei_runner.pkl"), "wb") as fo:

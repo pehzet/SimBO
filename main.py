@@ -5,7 +5,7 @@ import warnings
 import logging
 logging.basicConfig(
     level = logging.INFO,
-    format = '%(asctime)s: %(levelname)s: %(name)s : %(message)s'
+    format = '%(asctime)s: %(levelname)s: %(name)s: %(message)s'
     )
 
 logger = logging.getLogger("main")
@@ -69,16 +69,19 @@ class ExperimentRunner:
     def get_algorithm(self, algorithm_config:dict, param_meta:dict):
         self.algorithm = algorithm_config.get("strategy", algorithm_config.get("algorithm")).lower()
         self.eval_budget = algorithm_config.get("evaluation_budget")
+        
         if self.algorithm == "turbo":
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             batch_size = algorithm_config.get("batch_size")
             self.num_batches = algorithm_config.get("num_batches")
             return TurboRunner(experiment_id, len(param_meta),batch_size, num_init, param_meta=param_meta, device=tkwargs["device"], dtype=tkwargs["dtype"])
+        
         if self.algorithm == "gpei":
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             batch_size = algorithm_config.get("batch_size")
             self.num_batches = algorithm_config.get("num_batches")
             return GPEIRunner(experiment_id, len(param_meta),batch_size, num_init, param_meta=param_meta, device=tkwargs["device"], dtype=tkwargs["dtype"])
+        
         if self.algorithm == "saasbo":
             self.num_batches = algorithm_config.get("num_batches")
             warmup_steps = algorithm_config.get("warmup_steps", 512)
@@ -86,7 +89,7 @@ class ExperimentRunner:
             thinning = algorithm_config.get("thinning", 16)
             batch_size = algorithm_config.get("batch_size")
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
-            return SaasboRunner(self.experiment_id, len(param_meta), num_init=num_init, batch_size=batch_size, warmup_steps=warmup_steps,num_samples=num_samples, thinning=thinning, param_meta=param_meta)
+            return SaasboRunner(self.experiment_id, len(param_meta), num_init=num_init, batch_size=batch_size, warmup_steps=warmup_steps,num_samples=num_samples, thinning=thinning, param_meta=param_meta, device=tkwargs["device"], dtype=tkwargs["dtype"])
 
     def init_mrp_experiment(self, use_case_config):
         self.bom_id = use_case_config.get("bom_id")
@@ -120,10 +123,9 @@ class ExperimentRunner:
         with open(fpath, 'w+') as fo:
             json.dump(obj, fo)
         logger.info(f"Experiment data saved to >{fpath}<")
-        #print(f"Experiment File saved to {fpath}")
     
 
-    def append_candidat_to_candidates_list(self, x,y):
+    def append_candidate_to_candidates_list(self, x,y):
         assert len(x) == len(y)
         for i, xx in enumerate(x):
             self.current_candidat +=1
@@ -152,7 +154,7 @@ class ExperimentRunner:
         else:
             return None
 
-    def get_best_candidat(self):
+    def get_best_candidate(self):
         # TODO: make oneline?
         ys= list()
         for c in self.candidates:
@@ -167,7 +169,7 @@ class ExperimentRunner:
         config = self.get_experiment_config()
         self.init_mrp_experiment(config.get("use_case_config"))
     
-        self.runner = self.get_algorithm(config.get("algorithm_config"),self.param_meta)
+        self.runner = self.get_algorithm(config.get("algorithm_config"), self.param_meta)
         _start_trial = time.monotonic()
         _x = self.runner.suggest_initial()
         _end_trial = time.monotonic()
@@ -175,13 +177,15 @@ class ExperimentRunner:
         x = self.runner.format_x_for_mrp(_x)
       
         _y = list()
+
+        # TODO: Rename xx to something meaninful
         for xx in x:
             release = run_solver(xx)
             _eval_start_seconds = time.monotonic()
             _y.append(mrp_simulation().run_simulation(release))
             _eval_end_seconds = time.monotonic()
             self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
-        self.append_candidat_to_candidates_list(x,_y)
+        self.append_candidate_to_candidates_list(x,_y)
         y = self.runner.format_y_from_mrp(_y)
    
         self.runner.complete(y)
@@ -208,7 +212,7 @@ class ExperimentRunner:
                 _y = mrp_simulation().run_simulation(releases)
                 _eval_end_seconds = time.monotonic()
                 self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
-            self.append_candidat_to_candidates_list(x,_y)
+            self.append_candidate_to_candidates_list(x,_y)
             y = self.runner.format_y_from_mrp(_y)
             self.runner.complete(y)
             _end_trial = time.monotonic()
@@ -217,7 +221,7 @@ class ExperimentRunner:
         self.experiment_end_dts = datetime.now().isoformat()
         self.total_duration_seconds =  _end -_start
         
-        self.best_candidat = self.get_best_candidat()
+        self.best_candidat = self.get_best_candidate()
         self.runner.terminate_experiment()
         self.save_experiment_json()
     
