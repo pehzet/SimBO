@@ -63,71 +63,6 @@ class TurboState:
             self.restart_triggered = True
         return self
 
-
-# TODO: Move to TurboRunner?!
-def generate_batch(
-    state,
-    model,  # GP model
-    X,  # Evaluated points on the domain [0, 1]^d
-    Y,  # Function values
-    batch_size,
-    n_candidates=None,  # Number of candidates for Thompson sampling
-    num_restarts=10,
-    raw_samples=512,
-    acqf="ts",  # "ei" or "ts"
-    device="cpu",
-    dtype=torch.double
-):
-    assert acqf in ("ts", "ei")
-    assert X.min() >= 0.0 and X.max() <= 1.0 and torch.all(torch.isfinite(Y))
-    if n_candidates is None:
-        n_candidates = min(5000, max(2000, 200 * X.shape[-1]))
-
-    # Scale the TR to be proportional to the lengthscales
-    x_center = X[Y.argmax(), :].clone()
-    weights = model.covar_module.base_kernel.lengthscale.squeeze().detach()
-    weights = weights / weights.mean()
-    weights = weights / torch.prod(weights.pow(1.0 / len(weights)))
-    tr_lb = torch.clamp(x_center - weights * state.length / 2.0, 0.0, 1.0)
-    tr_ub = torch.clamp(x_center + weights * state.length / 2.0, 0.0, 1.0)
-
-    if acqf == "ts":
-        dim = X.shape[-1]
-        sobol = SobolEngine(dim, scramble=True)
-        pert = sobol.draw(n_candidates).to(dtype=dtype, device=device)
-        pert = tr_lb + (tr_ub - tr_lb) * pert
-
-        # Create a perturbation mask
-        prob_perturb = min(20.0 / dim, 1.0)
-        mask = (
-            torch.rand(n_candidates, dim, dtype=dtype, device=device)
-            <= prob_perturb
-        )
-        ind = torch.where(mask.sum(dim=1) == 0)[0]
-        mask[ind, torch.randint(0, dim - 1, size=(len(ind),), device=device)] = 1
-
-        # Create candidate points from the perturbations and the mask        
-        X_cand = x_center.expand(n_candidates, dim).clone()
-        X_cand[mask] = pert[mask]
-
-        # Sample on the candidate points
-        thompson_sampling = MaxPosteriorSampling(model=model, replacement=False)
-        with torch.no_grad():  # We don't need gradients when using TS
-            X_next = thompson_sampling(X_cand, num_samples=batch_size)
-
-    elif acqf == "ei":
-        ei = qExpectedImprovement(model, Y.max(), maximize=True)
-        X_next, acq_value = optimize_acqf(
-            ei,
-            bounds=torch.stack([tr_lb, tr_ub]),
-            q=batch_size,
-            num_restarts=num_restarts,
-            raw_samples=raw_samples,
-        )
-
-    return X_next
-
-
 class TurboRunner:
 
     def __init__(self, experiment_id, dim, batch_size, num_init, param_meta=None, device="cpu", dtype=torch.double):
@@ -222,25 +157,67 @@ class TurboRunner:
                 # Fit the model
             fit_gpytorch_model(mll)
         
-            # Create a batch
-            self.X_next = generate_batch(
-                state=self.state,
+            self.X_next = self.generate_batch(
                 model=model,
-                X=self.X_turbo,
                 Y=train_Y,
-                batch_size=self.batch_size,
+                acqf=acqf,
                 n_candidates=None,
                 num_restarts=10,
-                raw_samples=512,
-                acqf=acqf,
-                device=self.device,
-                dtype=self.dtype
+                raw_samples=512
             )
+
         return self.X_next
 
     # TODO: Implement as class method...
-    def generate_batch(model, train_Y):
-        pass
+    def generate_batch(self, model, Y, acqf, n_candidates = None, num_restarts=10, raw_samples=512):
+        assert acqf in ("ts", "ei")
+        assert self.X_turbo.min() >= 0.0 and self.X_turbo.max() <= 1.0 and torch.all(torch.isfinite(Y))
+        if n_candidates is None:
+            n_candidates = min(5000, max(2000, 200 * self.X_turbo.shape[-1]))
+
+        # Scale the TR to be proportional to the lengthscales
+        x_center = self.X_turbo[Y.argmax(), :].clone()
+        weights = model.covar_module.base_kernel.lengthscale.squeeze().detach()
+        weights = weights / weights.mean()
+        weights = weights / torch.prod(weights.pow(1.0 / len(weights)))
+        tr_lb = torch.clamp(x_center - weights * self.state.length / 2.0, 0.0, 1.0)
+        tr_ub = torch.clamp(x_center + weights * self.state.length / 2.0, 0.0, 1.0)
+
+        if acqf == "ts":
+            dim = self.X_turbo.shape[-1]
+            sobol = SobolEngine(dim, scramble=True)
+            pert = sobol.draw(n_candidates).to(dtype=self.dtype, device=self.device)
+            pert = tr_lb + (tr_ub - tr_lb) * pert
+
+            # Create a perturbation mask
+            prob_perturb = min(20.0 / dim, 1.0)
+            mask = (
+                torch.rand(n_candidates, dim, dtype=self.dtype, device=self.device)
+                <= prob_perturb
+            )
+            ind = torch.where(mask.sum(dim=1) == 0)[0]
+            mask[ind, torch.randint(0, dim - 1, size=(len(ind),), device=self.device)] = 1
+
+            # Create candidate points from the perturbations and the mask        
+            X_cand = x_center.expand(n_candidates, dim).clone()
+            X_cand[mask] = pert[mask]
+
+            # Sample on the candidate points
+            thompson_sampling = MaxPosteriorSampling(model=model, replacement=False)
+            with torch.no_grad():  # We don't need gradients when using TS
+                X_next = thompson_sampling(X_cand, num_samples=self.batch_size)
+
+        elif acqf == "ei":
+            ei = qExpectedImprovement(model, Y.max(), maximize=True)
+            X_next, acq_value = optimize_acqf(
+                ei,
+                bounds=torch.stack([tr_lb, tr_ub]),
+                q=self.batch_size,
+                num_restarts=num_restarts,
+                raw_samples=raw_samples,
+            )
+
+        return X_next
 
 
     def suggest_initial(self):
