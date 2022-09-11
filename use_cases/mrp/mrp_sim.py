@@ -185,5 +185,6 @@ class mrp_simulation:
         
         #return({"costs" : int(sum(self.costs)), "service_level" : float(int((sum(self.sl)/len(self.sl))*100)/100)})
 
+        # TODO: Return service level along with costs
         return {"costs" : int(sum(self.costs))}
 

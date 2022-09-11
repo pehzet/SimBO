@@ -14,25 +14,13 @@ from torch.quasirandom import SobolEngine
 from pathlib import Path
 import pickle
 
-# FOR DEBUG - DELETE LATER
-import sys
-from icecream import ic
-
-dtype = torch.double
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-#logger.info(f"Running on device: {device}")
-
-tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
-
-def get_initial_points(dim, n_pts, seed=0):
-    sobol = SobolEngine(dimension=dim, scramble=True, seed=seed)
-    X_init = sobol.draw(n=n_pts).to(dtype=dtype, device=device)
-    return X_init
-
+# def get_initial_points(dim, n_pts, seed=0):
+#     sobol = SobolEngine(dimension=dim, scramble=True, seed=seed)
+#     X_init = sobol.draw(n=n_pts).to(dtype=dtype, device=device)
+#     return X_init
 
 class SaasboRunner:
-    def __init__(self, experiment_id, dim, num_init, batch_size, warmup_steps,num_samples,thinning, param_meta=None):
+    def __init__(self, experiment_id, dim, num_init, batch_size, warmup_steps,num_samples,thinning, param_meta, device, dtype):
         
         self.experiment_id = experiment_id,
         self.dim: int = dim
@@ -52,8 +40,12 @@ class SaasboRunner:
         self.batch_runtimes = list()
         self.eval_budget = 1000
         self.eval_runtimes_second = list()
+        self.device = device
+        self.dtype = dtype
+        
+        logger.info(f"Running on device: {device}")
 
-
+    # TODO: Outsource from algorithm to optimzation loop runner
     def format_x_for_mrp(self, xx):
         assert self.param_meta is not None
         assert self.bounds is not None
@@ -72,13 +64,14 @@ class SaasboRunner:
             xx_mrp.append(x_mrp)
         return xx_mrp
 
-
+    # TODO: Outsource from algorithm to optimzation loop runner
     def format_y_from_mrp(self, y_mrp):
         yy = torch.tensor([list(y.values())[0] for y in y_mrp])
         if self.minimize:
             yy = -1 * yy
         return yy
 
+    # TODO: Outsource from algorithm to optimzation loop runner
     def get_bounds_from_param_meta(self):
         '''
         expects list of dicts with key lower_bound: int and upper_bound: int or bounds: (int, int)
@@ -93,8 +86,9 @@ class SaasboRunner:
     def suggest_initial(self):
    
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=0)
-        self.X_next = sobol.draw(n=self.num_init).to(dtype=dtype, device=device)
+        self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
         self.X = self.X_next if self.X == None else self.X
+        logger.debug(f"Initial SOBOL candidates: {self.X_next}")
         return self.X_next 
     
     def suggest(self):
@@ -110,7 +104,7 @@ class SaasboRunner:
         EI = qExpectedImprovement(model=gp, best_f=self.Y.max())
         self.X_next, acq_values = optimize_acqf(
             EI,
-            bounds=torch.cat((torch.zeros(1, self.dim), torch.ones(1, self.dim))).to(**tkwargs),
+            bounds=torch.cat((torch.zeros(1, self.dim), torch.ones(1, self.dim))).to(dtype=self.dtype, device=self.device),
             q=self.batch_size,
             num_restarts=10,
             raw_samples=1024,
@@ -119,17 +113,19 @@ class SaasboRunner:
         # TODO: PROBLEMS WITH TENSOR
         # self.acq_values = acq_values if self.acq_values is None else torch.cat((self.acq_values, acq_values), dim=0) # TODO: Check/Test if dim=0 oder dim=1 -> dim=0 is correct
         self.X = torch.cat((self.X, self.X_next))
+        logger.debug(f"Next suggested candidate(s) (SAASBO): {self.X_next}")
         return self.X_next
 
     def complete(self, y):
-        self.Y_next  = torch.tensor(y,dtype=dtype, device=device).unsqueeze(-1)
+        self.Y_next  = torch.tensor(y,dtype=self.dtype, device=self.device).unsqueeze(-1)
         self.Y = self.Y_next if self.Y == None else torch.cat((self.Y, self.Y_next))
+        logger.debug(f"Completed candidate: {self.Y_next}")
      
     def terminate_experiment(self):
-        logger.info(f"Best Value found:  {max(self.Y).item()}")
-        #print(str(self.experiment_id))
+        best_value = max(self.Y).item() * -1 if self.minimize else max(self.Y).item() 
+        logger.info(f"Experiment terminated. Best value:  {best_value}")
+       
         path = "data/experiment_" + str(self.experiment_id)
-        #print(path)
         Path(path).mkdir(parents=True, exist_ok=True)
         with open((path + "/" + str(self.experiment_id) + "_saasbo_runner.pkl"), "wb") as fo:
             pickle.dump(self, fo)
