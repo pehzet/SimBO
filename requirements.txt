@@ -7,3 +7,4 @@ icecream
 python-dotenv
 supabase
 sqlalchemy
+numpy
