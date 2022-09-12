@@ -14,17 +14,21 @@ from botorch.utils.transforms import unnormalize, normalize
 from pathlib import Path
 import pickle
 
-
+from icecream import ic
 class GPEIRunner():
-    def __init__(self, experiment_id, dim, batch_size, num_init, param_meta, device, dtype):
+    def __init__(self, experiment_id, dim, batch_size, num_init, device, dtype):
         self.experiment_id = experiment_id
         self.dim = dim
         self.batch_size = batch_size
         self.num_init = num_init
-        self.param_meta = param_meta
-        self.bounds = self.get_bounds_from_param_meta()
+
+
         self.X = None
         self.Y = None
+        self.X_next = None
+        self.Y_next = None
+        self.Yvar = None
+        self.Yvar_next = None
         self.minimize = True
         self.batch_runtimes = list()
         self.eval_budget = 1000
@@ -34,54 +38,17 @@ class GPEIRunner():
 
         logger.info(f"Running on device: {self.device}")
 
-    # TODO: Outsource from algorithm to optimzation loop runner
-    def get_bounds_from_param_meta(self):
-        '''
-        expects list of dicts with key lower_bound: int and upper_bound: int or bounds: (int, int)
-        returns bounds as tuple tensor
-        '''
-        lb = [pm.get("lower_bound") for pm in self.param_meta]
-        ub = [pm.get("upper_bound") for pm in self.param_meta]
-        #bounds = [(pm.get("lower_bound",pm.get("bounds")[0]) , pm.get("upper_bound",pm.get("bounds")[1])) for pm in self.param_meta]
-        bounds = torch.tensor([lb, ub])
-        logger.debug(f"Parameter bounds: {bounds}")
-        return bounds
-    
-    # TODO: Outsource from algorithm to optimzation loop runner
-    def format_x_for_mrp(self, xx):
-        assert self.param_meta is not None
-        assert self.bounds is not None
-        xx = unnormalize(xx, bounds=self.bounds)
-        xx_mrp = []
-        for x in xx:
-            x_mrp = []
-            for i,pm in enumerate(self.param_meta):
-                x_mrp.append(
-                    {   
-                    "id" : pm.get("name").split("_",1)[0],
-                    "name" : pm.get("name").split("_",1)[1],
-                    "value" : int(round(x[i].numpy().item()))
-                    }
-                )
-            xx_mrp.append(x_mrp)
-        return xx_mrp
-
-
-    # TODO: Outsource from algorithm to optimzation loop runner
-    def format_y_from_mrp(self, y_mrp):
-        yy = torch.tensor([list(y.values())[0] for y in y_mrp])
-        if self.minimize:
-            yy = -1 * yy
-        return yy
 
     def suggest_initial(self, seed=0):
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=seed)
         self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
-        self.X = self.X_next if self.X == None else self.X
+   
         logger.debug(f"Initial SOBOL candidates: {self.X_next}")
+        
         return self.X_next
 
     def suggest(self, _acqf = "qEI"):
+
         gp = FixedNoiseGP(self.X, self.Y, train_Yvar=torch.full_like(self.Y, 1e-6))
         mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
         fit_gpytorch_model(mll=mll)
@@ -97,14 +64,19 @@ class GPEIRunner():
             num_restarts=10,
             raw_samples=1024,
         )
-        self.X = torch.cat((self.X, self.X_next))
+       
         logger.debug(f"Next suggested candidate(s) (GP/{_acqf}): {self.X_next}")
         return self.X_next
 
-    def complete(self, y):
-        self.Y_next  = torch.tensor(y,dtype=self.dtype, device=self.device).unsqueeze(-1)
-        self.Y = self.Y_next if self.Y == None else torch.cat((self.Y, self.Y_next))
-        logger.debug(f"Completed candidate: {self.Y_next}")
+    def complete(self, y, yvar = None):
+        # TODO: Make X and X_Next SAME AS SAASBO, same for Y, also rm hasattr if and make online
+        self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
+        if yvar is not None:
+            self.Yvar_next = torch.tensor(yvar, dtype=self.dtype, device=self.device).unsqueeze(-1)
+            self.Yvar = torch.cat((self.Yvar, self.Yvar_next),  dim=0) if self.Yvar is not None else self.Yvar_next
+        self.X = torch.cat((self.X, self.X_next), dim=0) if self.X is not None else self.X_next
+        self.Y = torch.cat((self.Y, self.Y_next), dim=0) if self.Y is not None else self.Y_next
+         
 
     def terminate_experiment(self):
         best_value = max(self.Y).item() * -1 if self.minimize else max(self.Y).item() 
