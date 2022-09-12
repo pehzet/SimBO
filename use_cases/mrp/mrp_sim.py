@@ -2,6 +2,7 @@ import random
 import math
 import copy
 import logging
+
 logger = logging.getLogger("sim")
 
 class g:
@@ -16,25 +17,7 @@ def init_mrp_sim(bom, materials, orders, sim_time=100):
     for o in g.orders:
         o["backorder"] = False
  
-def get_bom_childs_with_quantity(parent_id, parent_quantity, bom):
-    try: 
-        parent_id = str(parent_id)
-    except:
-        if parent_id.startswith("M") or parent_id.startswith("O"):
-            parent_id = parent_id.split("_")[1]
-        else:
-            logging.error("SOMETHING WRONG WITH PARENT ID")
 
-    children = [b for b in bom if str(b["parent_id"]) == str(parent_id)]
-    bom_children_with_quant = []
-    for child in children:
-        child_quant = child["quantity"] * parent_quantity
-        bom_children_with_quant.append({
-            "child_id" : child["child_id"],
-            "quantity" : child_quant,
-            "quantity_per_unit" : child["quantity"]
-        })
-    return bom_children_with_quant
 
 
 def sample_lead_time_delay(method="discrete"):
@@ -59,10 +42,10 @@ def sample_quantity_reduction(quantity, method="discrete"):
     logging.warn("No method for sample quantity reduction selected. Return 0")
     return 0
 
-all_order_ids = []
-class mrp_simulation:
-    def __init__(self):
 
+class mrp_simulation:
+    def __init__(self, releases):
+        self.releases = copy.deepcopy(releases)
         self.costs = []
         self.stock = []
         self.sl = []
@@ -70,10 +53,28 @@ class mrp_simulation:
         self.materials = copy.deepcopy(g.materials)
         self.bom = copy.deepcopy(g.bom)
         self.orders = copy.deepcopy(g.orders)
-  
-    def run_simulation(self, releases):
-      
-        for r in releases:
+    def get_bom_childs_with_quantity(self, parent_id, parent_quantity):
+        try: 
+            parent_id = str(parent_id)
+        except:
+            if parent_id.startswith("M") or parent_id.startswith("O"):
+                parent_id = parent_id.split("_")[1]
+            else:
+                logging.error("SOMETHING WRONG WITH PARENT ID")
+
+        children = [b for b in self.bom if str(b["parent_id"]) == str(parent_id)]
+        bom_children_with_quant = []
+        for child in children:
+            child_quant = child["quantity"] * parent_quantity
+            bom_children_with_quant.append({
+                "child_id" : child["child_id"],
+                "quantity" : child_quant,
+                "quantity_per_unit" : child["quantity"]
+            })
+        return bom_children_with_quant
+    def run_simulation(self):
+
+        for r in self.releases:
             r["arrival"] = -1
             r["backorder"] = False
 
@@ -82,7 +83,7 @@ class mrp_simulation:
             period = _ + 1
             for s in self.stock:
                 self.costs.append(s.get("quantity") * s.get("storage_cost_rate"))
-            arrivals_in_period = [r for r in releases if r.get("arrival") == period or (r.get("backorder") == True and r.get("quantity")>0)]
+            arrivals_in_period = [r for r in self.releases if r.get("arrival") == period or (r.get("backorder") == True and r.get("quantity")>0)]
             for arrival in arrivals_in_period:
                 material_id = str(arrival["material"])
                 mat_in_stock = [s for s in self.stock if s["material"] == material_id]
@@ -102,13 +103,13 @@ class mrp_simulation:
 
                 arrival["quantity"] -= _quantity
 
-            releases_in_period = [r for r in releases if r.get("period") == period or (r.get("backorder") == True and r.get("quantity")>0)]
+            releases_in_period = [r for r in self.releases if r.get("period") == period or (r.get("backorder") == True and r.get("quantity")>0)]
             for release in releases_in_period:
                 if not "backorder" in release.keys():
                     release["backorder"] = False
                 material_id = str(release["material"])
                 _quant = release.get("quantity")
-                children = get_bom_childs_with_quantity(material_id, _quant, self.bom)
+                children = self.get_bom_childs_with_quantity(material_id, _quant)
                 quantities_possible = []
                 for child in children:
                     child_in_stock_list = [s for s in self.stock if str(s["material"]) == str(child.get("child_id"))]
@@ -129,7 +130,7 @@ class mrp_simulation:
                     _release["quantity"] = _quant - min(quantities_possible)
                     _release["arrival"] = period + _release.get("lead_time") + sample_lead_time_delay(method="discrete")
                     _quant = min(quantities_possible)
-                    releases.append(_release)
+                    self.releases.append(_release)
             
                 release["arrival"] = release["period"] + release["lead_time"] + sample_lead_time_delay(method="discrete")
 
@@ -178,7 +179,7 @@ class mrp_simulation:
                     _fulfill_quant = o.get("quantity")
                     self.fulfilled_orders.append(o.get("order_id"))
                 else:
-                    logging.error("Mistake at Order Fulfillment. Let order pass.")
+                    logging.error("Error at Order Fulfillment. Let order pass.")
 
         assert len(self.costs) > 0 and len(self.sl) > 0
         logging.debug(f"Finished with costs: {int(sum(self.costs))} and service level : {float(int((sum(self.sl)/len(self.sl))*100)/100)} ")
@@ -186,5 +187,7 @@ class mrp_simulation:
         #return({"costs" : int(sum(self.costs)), "service_level" : float(int((sum(self.sl)/len(self.sl))*100)/100)})
 
         # TODO: Return service level along with costs
-        return {"costs" : int(sum(self.costs))}
+ 
+  
+        return {"costs" : int(sum(self.costs)), "service_level" : float(int((sum(self.sl)/len(self.sl))*100)/100)}
 

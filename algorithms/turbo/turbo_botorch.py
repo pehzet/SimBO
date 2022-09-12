@@ -10,7 +10,7 @@ import torch
 from botorch.acquisition import qExpectedImprovement
 from botorch.fit import fit_gpytorch_model
 from botorch.generation import MaxPosteriorSampling
-from botorch.models import SingleTaskGP
+from botorch.models import SingleTaskGP, FixedNoiseGP, HeteroskedasticSingleTaskGP
 from botorch.optim import optimize_acqf
 from botorch.test_functions import Ackley
 from botorch.utils.transforms import unnormalize, normalize
@@ -22,6 +22,8 @@ from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from pathlib import Path
+
+from icecream import ic
 
 
 @dataclass
@@ -65,18 +67,21 @@ class TurboState:
 
 class TurboRunner:
 
-    def __init__(self, experiment_id, dim, batch_size, num_init, param_meta=None, device="cpu", dtype=torch.double):
+    def __init__(self, experiment_id, dim, batch_size, num_init, device="cpu", dtype=torch.double):
         self.experiment_id = experiment_id
         self.dim = dim
         self.batch_size = batch_size
         self.state = TurboState(dim=self.dim, batch_size=self.batch_size)
-        self.param_meta = param_meta
-        self.bounds = self.get_bounds_from_param_meta()
+
+
         self.num_init = num_init
         self.X = None
         self.Y = None
         self.X_next = None
         self.Y_next = None
+        self.Yvar = None
+        self.Yvar_next = None
+
         self.minimize = True
         self.total_runtime = 0
         self.batch_runtimes = list()
@@ -90,43 +95,7 @@ class TurboRunner:
 
         logger.info(f"Running on device: {self.device} and dtype: {self.dtype}")
     
-    def format_x_for_mrp(self, xx):
-        assert self.param_meta is not None
-        assert self.bounds is not None
-        xx = unnormalize(xx, bounds=self.bounds)
-        xx_mrp = []
-        for x in xx:
-            x_mrp = []
-            for i,pm in enumerate(self.param_meta):
-       
-                x_mrp.append(
-                    {   
-                    "id" : pm.get("name").split("_",1)[0],
-                    "name" : pm.get("name").split("_",1)[1],
-                    "value" : int(round(x[i].numpy().item()))
-                    }
-                )
-            xx_mrp.append(x_mrp)
-        return xx_mrp
 
-    def format_y_from_mrp(self, y_mrp):
-
-        yy = torch.tensor([list(y.values())[0] for y in y_mrp])
-        if self.minimize:
-            yy = -1 * yy
-        return yy
-
-    def get_bounds_from_param_meta(self):
-        '''
-        expects list of dicts with key lower_bound: int and upper_bound: int or bounds: (int, int)
-        returns bounds as tuple tensor
-        '''
-        
-        lb = [pm.get("lower_bound") for pm in self.param_meta]
-        ub = [pm.get("upper_bound") for pm in self.param_meta]
-        #bounds = [(pm.get("lower_bound",pm.get("bounds")[0]) , pm.get("upper_bound",pm.get("bounds")[1])) for pm in self.param_meta]
-        bounds = torch.tensor([lb, ub])
-        return bounds
 
     def restart_state(self):                
         logger.info(f"{self.num_restarts}. start of TR triggered")
@@ -138,19 +107,31 @@ class TurboRunner:
         self.Y = None
         self.X_next = None
         self.Y_next = None
+        self.Yvar = None
+        self.Yvar_next = None
 
     def suggest(self, acqf="ts"):
         if self.state.restart_triggered:
             self.restart_state()
             self.X_next = self.suggest_initial()
             return self.X_next
-        train_Y = (self.Y_turbo - self.Y_turbo.mean()) / self.Y_turbo.std()
+        train_Y = (self.Y - self.Y.mean()) / self.Y.std()
+        
         likelihood = GaussianLikelihood(noise_constraint=Interval(1e-8, 1e-3))
         covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
         MaternKernel(nu=2.5, ard_num_dims=self.dim, lengthscale_constraint=Interval(0.005, 4.0))
         )
-  
-        model = SingleTaskGP(self.X_turbo, train_Y, covar_module=covar_module, likelihood=likelihood)
+
+        #model = SingleTaskGP(self.X, train_Y, covar_module=covar_module, likelihood=likelihood)
+        if self.Yvar_next == None:
+            model = FixedNoiseGP(self.X, train_Y, covar_module=covar_module, likelihood=likelihood, train_Yvar=torch.full_like(self.Y, 1e-6))
+        else:
+            train_Yvar = (self.Yvar - self.Yvar.mean()) / self.Yvar.std()
+          
+            train_Yvar = torch.abs(train_Yvar)
+    
+            model = HeteroskedasticSingleTaskGP(self.X, train_Y, train_Yvar=train_Yvar)
+            #model = HeteroskedasticSingleTaskGP(self.X, self.Y, train_Yvar=self.Yvar)
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
 
         with gpytorch.settings.max_cholesky_size(float("inf")):
@@ -171,12 +152,12 @@ class TurboRunner:
     # TODO: Implement as class method...
     def generate_batch(self, model, Y, acqf, n_candidates = None, num_restarts=10, raw_samples=512):
         assert acqf in ("ts", "ei")
-        assert self.X_turbo.min() >= 0.0 and self.X_turbo.max() <= 1.0 and torch.all(torch.isfinite(Y))
+        assert self.X.min() >= 0.0 and self.X.max() <= 1.0 and torch.all(torch.isfinite(Y))
         if n_candidates is None:
-            n_candidates = min(5000, max(2000, 200 * self.X_turbo.shape[-1]))
+            n_candidates = min(5000, max(2000, 200 * self.X.shape[-1]))
 
         # Scale the TR to be proportional to the lengthscales
-        x_center = self.X_turbo[Y.argmax(), :].clone()
+        x_center = self.X[Y.argmax(), :].clone()
         weights = model.covar_module.base_kernel.lengthscale.squeeze().detach()
         weights = weights / weights.mean()
         weights = weights / torch.prod(weights.pow(1.0 / len(weights)))
@@ -184,7 +165,7 @@ class TurboRunner:
         tr_ub = torch.clamp(x_center + weights * self.state.length / 2.0, 0.0, 1.0)
 
         if acqf == "ts":
-            dim = self.X_turbo.shape[-1]
+            dim = self.X.shape[-1]
             sobol = SobolEngine(dim, scramble=True)
             pert = sobol.draw(n_candidates).to(dtype=self.dtype, device=self.device)
             pert = tr_lb + (tr_ub - tr_lb) * pert
@@ -226,17 +207,15 @@ class TurboRunner:
         self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
         return self.X_next
 
-    def complete(self, y):
+    def complete(self, y, yvar = None):
         # TODO: Make X and X_Next SAME AS SAASBO, same for Y, also rm hasattr if and make online
         self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
-        if not hasattr(self,"X_turbo"):
-            self.X_turbo = self.X_next
-        else:
-            self.X_turbo = torch.cat((self.X_turbo, self.X_next), dim=0)
-        if not hasattr(self,"Y_turbo"):
-            self.Y_turbo = self.Y_next 
-        else:
-            self.Y_turbo = torch.cat((self.Y_turbo, self.Y_next), dim=0)
+        if yvar is not None:
+    
+            self.Yvar_next = torch.tensor(yvar, dtype=self.dtype, device=self.device).unsqueeze(-1)
+            self.Yvar = torch.cat((self.Yvar, self.Yvar_next),  dim=0) if self.Yvar is not None else self.Yvar_next
+        self.X = torch.cat((self.X, self.X_next), dim=0) if self.X is not None else self.X_next
+        self.Y = torch.cat((self.Y, self.Y_next), dim=0) if self.Y is not None else self.Y_next
         self.state.update_state(Y_next=self.Y_next)
 
     def terminate_experiment(self):
