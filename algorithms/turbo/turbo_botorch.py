@@ -13,7 +13,7 @@ from botorch.generation import MaxPosteriorSampling
 from botorch.models import SingleTaskGP, FixedNoiseGP, HeteroskedasticSingleTaskGP
 from botorch.optim import optimize_acqf
 from botorch.test_functions import Ackley
-from botorch.utils.transforms import unnormalize, normalize
+from botorch.utils.transforms import unnormalize, normalize, standardize
 from torch.quasirandom import SobolEngine
 
 import gpytorch
@@ -23,11 +23,13 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from pathlib import Path
 
+
+from algorithms.AlgorithmRunner import AlgorithmRunner
 from icecream import ic
 
 
 @dataclass
-class TurboState:
+class TurboState():
     dim: int
     batch_size: int
     length: float = 0.8
@@ -65,43 +67,25 @@ class TurboState:
             self.restart_triggered = True
         return self
 
-class TurboRunner:
+@dataclass
+class TurboRunner(AlgorithmRunner):
 
-    def __init__(self, experiment_id, dim, batch_size, num_init, device="cpu", dtype=torch.double):
-        self.experiment_id = experiment_id
-        self.dim = dim
-        self.batch_size = batch_size
+    def __init__(self, experiment_id, replication, dim, batch_size, num_init, device, dtype):
+        super().__init__(experiment_id,  replication, dim, batch_size, num_init, device, dtype)
         self.state = TurboState(dim=self.dim, batch_size=self.batch_size)
-
-
-        self.num_init = num_init
-        self.X = None
-        self.Y = None
-        self.X_next = None
-        self.Y_next = None
-        self.Yvar = None
-        self.Yvar_next = None
-
-        self.minimize = True
-        self.total_runtime = 0
-        self.batch_runtimes = list()
-        self.num_restarts = 0
-        self.budget_at_restart = list()
-        self.eval_budget = 10000 # TODO: CHANGE
-        self.eval_runtimes_second = list()
-        self.seed = 0
-        self.device=device
-        self.dtype=dtype
-
         logger.info(f"Running on device: {self.device} and dtype: {self.dtype}")
+        
+        self.sm = "fngp" # TODO: make configuable later
+        self.acqf = "ts" # TODO: make configuable later
+        self.X_all = None
     
 
 
     def restart_state(self):                
         logger.info(f"{self.num_restarts}. start of TR triggered")
         self.num_restarts +=1
-        self.budget_at_restart.append(self.eval_budget)
         self.terminate_experiment()
+        self.X_all = torch.cat((self.X_all, self.X), dim=0) if self.X_all is not None else self.X
         self.state = TurboState(dim=self.dim, batch_size=self.batch_size)
         self.X = None
         self.Y = None
@@ -110,28 +94,25 @@ class TurboRunner:
         self.Yvar = None
         self.Yvar_next = None
 
-    def suggest(self, acqf="ts"):
+    def suggest(self):
         if self.state.restart_triggered:
             self.restart_state()
             self.X_next = self.suggest_initial()
             return self.X_next
-        train_Y = (self.Y - self.Y.mean()) / self.Y.std()
-        
-        likelihood = GaussianLikelihood(noise_constraint=Interval(1e-8, 1e-3))
+        train_Y = standardize(self.Y) #standardize because botorch says it works better
+        train_Yvar = standardize(self.Yvar)
+        train_Yvar = torch.abs(train_Yvar) # variance must not be negative
+        #likelihood = GaussianLikelihood(noise_constraint=Interval(1e-8, 1e-3))
         covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
         MaternKernel(nu=2.5, ard_num_dims=self.dim, lengthscale_constraint=Interval(0.005, 4.0))
         )
+        # NOTE: Check if standardize Y and Yvar perform better. stdardize = (Y-Y.mean)/Y.std
 
-        #model = SingleTaskGP(self.X, train_Y, covar_module=covar_module, likelihood=likelihood)
-        if self.Yvar_next == None:
-            model = FixedNoiseGP(self.X, train_Y, covar_module=covar_module, likelihood=likelihood, train_Yvar=torch.full_like(self.Y, 1e-6))
-        else:
-            train_Yvar = (self.Yvar - self.Yvar.mean()) / self.Yvar.std()
-          
-            train_Yvar = torch.abs(train_Yvar)
-    
-            model = HeteroskedasticSingleTaskGP(self.X, train_Y, train_Yvar=train_Yvar)
-            #model = HeteroskedasticSingleTaskGP(self.X, self.Y, train_Yvar=self.Yvar)
+        model = FixedNoiseGP(self.X, train_Y, covar_module=covar_module,  train_Yvar=train_Yvar)
+
+        # NOTE: Heteroskedastic models noise as second GP to predict noise. Not needed atm.
+        # model = HeteroskedasticSingleTaskGP(self.X, train_Y, train_Yvar=train_Yvar)
+        # model = HeteroskedasticSingleTaskGP(self.X, self.Y, train_Yvar=self.Yvar)
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
 
         with gpytorch.settings.max_cholesky_size(float("inf")):
@@ -141,7 +122,7 @@ class TurboRunner:
             self.X_next = self.generate_batch(
                 model=model,
                 Y=train_Y,
-                acqf=acqf,
+                acqf=self.acqf,
                 n_candidates=None,
                 num_restarts=10,
                 raw_samples=512
@@ -201,22 +182,6 @@ class TurboRunner:
         return X_next
 
 
-    def suggest_initial(self):
-        logger.debug("Suggesting >{self.num_init} points.")
-        sobol = SobolEngine(dimension=self.dim, scramble=True, seed=self.seed)
-        self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
-        return self.X_next
-
-    def complete(self, y, yvar = None):
-        # TODO: Make X and X_Next SAME AS SAASBO, same for Y, also rm hasattr if and make online
-        self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
-        if yvar is not None:
-    
-            self.Yvar_next = torch.tensor(yvar, dtype=self.dtype, device=self.device).unsqueeze(-1)
-            self.Yvar = torch.cat((self.Yvar, self.Yvar_next),  dim=0) if self.Yvar is not None else self.Yvar_next
-        self.X = torch.cat((self.X, self.X_next), dim=0) if self.X is not None else self.X_next
-        self.Y = torch.cat((self.Y, self.Y_next), dim=0) if self.Y is not None else self.Y_next
-        self.state.update_state(Y_next=self.Y_next)
 
     def terminate_experiment(self):
         if self.state.restart_triggered:
@@ -224,11 +189,9 @@ class TurboRunner:
             logger.info(f"Best Value at current State: {best_value:.2f}")
             #print(f"Best Value at current State: {best_value:.2f}")
 
-        best_value = self.state.best_value * -1 if self.minimize else self.state.best_value
-        logger.info(f"Best Value found: {best_value:.2f}")
     
-        _name_state = "_turbo_state_" + str(self.num_restarts +1) + ".pkl"
-        _name_runner = "_turbo_runner_" + str(self.num_restarts +1) + ".pkl"
+        _name_state = "_turbostate_" + str(self.num_restarts +1) + ".pkl"
+        _name_runner = "_turborunner_" + str(self.num_restarts +1) + ".pkl"
         path = f"data/experiment_{self.experiment_id}"
         Path(path).mkdir(parents=True, exist_ok=True)
         with open((path +"/" + str(self.experiment_id) + _name_state), "wb") as fo:

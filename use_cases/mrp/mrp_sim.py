@@ -20,31 +20,11 @@ def init_mrp_sim(bom, materials, orders, sim_time=100):
 
 
 
-def sample_lead_time_delay(method="discrete"):
-    if method == "discrete":
-        values = [0,1,2,3]
-        weights = [10,5,3,2]
-        value = random.choices(values, weights,k=1)
-        return value[0]
-    if method == "deterministic" or method == None:
-        return 0
-    logging.warn("No method for sample lead time delay selected. Return 0")
-    return 0
 
-def sample_quantity_reduction(quantity, method="discrete"):
-    if method == "discrete":
-        values = [0,math.ceil(quantity*0.01),math.ceil(quantity*0.05),math.ceil(quantity*0.1)]
-        weights = [10,5,3,2]
-        value = random.choices(values, weights,k=1)
-        return value[0]
-    if method == "deterministic" or method == None:
-        return 0
-    logging.warn("No method for sample quantity reduction selected. Return 0")
-    return 0
 
 
 class mrp_simulation:
-    def __init__(self, releases):
+    def __init__(self, releases, stochastic_method="discrete"):
         self.releases = copy.deepcopy(releases)
         self.costs = []
         self.stock = []
@@ -53,6 +33,7 @@ class mrp_simulation:
         self.materials = copy.deepcopy(g.materials)
         self.bom = copy.deepcopy(g.bom)
         self.orders = copy.deepcopy(g.orders)
+        self.stochastic_method = stochastic_method
     def get_bom_childs_with_quantity(self, parent_id, parent_quantity):
         try: 
             parent_id = str(parent_id)
@@ -72,6 +53,32 @@ class mrp_simulation:
                 "quantity_per_unit" : child["quantity"]
             })
         return bom_children_with_quant
+
+    def sample_lead_time_delay(self):
+
+        if self.stochastic_method == "discrete":
+            values = [0,1,2,3,4,5,6,7]
+            weights = [10,5,3,2,1,0.5,0.1,0.05]
+            assert len(values) == len(weights)
+            value = random.choices(values, weights,k=1)
+            return value[0]
+        if self.stochastic_method == "deterministic" or self.stochastic_method == None or self.stochastic_method == "None":
+            return 0
+        logging.warn("No method for sample lead time delay selected. Return 0")
+        return 0
+
+    def sample_quantity_reduction(self, quantity):
+
+        if self.stochastic_method == "discrete":
+            values = [0,math.ceil(quantity*0.01),math.ceil(quantity*0.05),math.ceil(quantity*0.1),math.ceil(quantity*0.25),math.ceil(quantity*0.5),math.ceil(quantity)]
+            weights = [10,5,3,2,1,1,0.5]
+            assert len(values) == len(weights)
+            value = random.choices(values, weights,k=1)
+            return value[0]
+        if self.stochastic_method == "deterministic" or self.stochastic_method == None or self.stochastic_method == "None":
+            return 0
+        logging.warn("No method for sample quantity reduction selected. Return 0")
+        return 0
     def run_simulation(self):
 
         for r in self.releases:
@@ -87,7 +94,7 @@ class mrp_simulation:
             for arrival in arrivals_in_period:
                 material_id = str(arrival["material"])
                 mat_in_stock = [s for s in self.stock if s["material"] == material_id]
-                _quantity = arrival.get("quantity") - sample_quantity_reduction(arrival.get("quantity"), method="discrete")
+                _quantity = arrival.get("quantity") - self.sample_quantity_reduction(arrival.get("quantity"))
                 if len(mat_in_stock) == 0:
                     unit_cost, storage_cost_rate, penalty_cost_rate = [(m.get("unit_costs"), m.get("storage_cost_rate"), m.get("penalty_cost_rate")) for m in self.materials if str(m.get("id")) == material_id][0]
                     self.stock.append({
@@ -128,11 +135,11 @@ class mrp_simulation:
                     _release = copy.deepcopy(release)
                     _release["backorder"] = True
                     _release["quantity"] = _quant - min(quantities_possible)
-                    _release["arrival"] = period + _release.get("lead_time") + sample_lead_time_delay(method="discrete")
+                    _release["arrival"] = period + _release.get("lead_time") + self.sample_lead_time_delay()
                     _quant = min(quantities_possible)
                     self.releases.append(_release)
             
-                release["arrival"] = release["period"] + release["lead_time"] + sample_lead_time_delay(method="discrete")
+                release["arrival"] = release["period"] + release["lead_time"] + self.sample_lead_time_delay()
 
                 release["quantity"] =  _quant
                 for child in children:

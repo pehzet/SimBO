@@ -3,8 +3,7 @@ botorch
 pandas
 flask
 requests
-icecream
 python-dotenv
-supabase
 sqlalchemy
 numpy
+cma

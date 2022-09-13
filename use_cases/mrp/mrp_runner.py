@@ -22,8 +22,10 @@ from botorch.utils.transforms import unnormalize, normalize
 
 class MRPRunner():
 
-    def __init__(self, bom_id):
+    def __init__(self, bom_id, num_solver_runs=5, stochastic_method=True):
         self.bom_id = bom_id
+        self.num_solver_runs = num_solver_runs
+        self.stochastic_method = stochastic_method
         self.bom = None
         self.materials = None
         self.orders = None
@@ -36,20 +38,15 @@ class MRPRunner():
         self.X = list()
         self.Y_raw = list()
 
-    def eval(self, x, num_solver_runs = 5):
+
+    def eval(self, x, ):
         x = self.transform_x(x)
         self.X.append(x)
-        _y_raw = list()
         releases = self.run_solver(x)
-
-        for _ in range(num_solver_runs):
-
-  
-            result = mrp_simulation(releases).run_simulation()
-     
-            _y_raw.append(result)
+        for _ in range(self.num_solver_runs):
+            result = mrp_simulation(releases, stochastic_method = self.stochastic_method).run_simulation()
             self.Y_raw.append(result)
-        y = self.get_mean_and_sem_from_y(_y_raw)
+        y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_solver_runs:])
   
         return y
     def get_mean_and_sem_from_y(self, y_raw):
@@ -65,7 +62,6 @@ class MRPRunner():
     def format_y_for_candidate(self, y):
         return {"costs" : y[0], "service_level" : y[1]}
     def format_x_for_candidate(self, x):
-
         return self.transform_x(x)
 
     def transform_x(self, x):
@@ -116,8 +112,6 @@ class MRPRunner():
         Expects: {material_param_name : value} (one dict, no list!)
         Returns: [{id: material, name : param_name, value : value}] (list of dicts)
         '''
-
-
         _params = []
         # NOTE: Not general! Only works for safety_stock and safety_time
         for k,v in params.items():
@@ -131,7 +125,6 @@ class MRPRunner():
         return _params
 
     def filter_relevant_materials(self, data, filter_by_id=False):
-  
         if isinstance(data, DataFrame):
             data = data.to_dict('records')
         ids = []
@@ -140,8 +133,6 @@ class MRPRunner():
                 if k == 'child_id' or k == 'parent_id':
                     if int(v) not in ids:
                         ids.append(int(v))
-     
-    
         if filter_by_id == True:
             data = [d for d in data if int(d["id"]) in ids and d.get("bom_id") == self.bom_id]
         else:
@@ -150,7 +141,6 @@ class MRPRunner():
         return data
 
     def get_releases_from_results(self,mrp_results,parameters):
-        
         write_data = []
         for r in mrp_results:
             id = r["id"]

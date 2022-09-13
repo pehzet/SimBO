@@ -13,7 +13,7 @@ simbo-env
 configs
 api_formats
 backup_sim.py
-algorithms\cmaes
 algorithms\moo
 algorithms\bo
 notes.txt
+outcmaes
