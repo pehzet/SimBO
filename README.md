@@ -14,13 +14,13 @@ pip -r requirements.txt
 Alternative, type on terminal:
 
 ```
-SET SHEET_ID=<google_spreadsheet_id
+SET SHEET_ID=<google_spreadsheet_id>
 ```
 
-**Step 3:** Get the configs by running `gheet_utils.py`
+**Step 3:** Get the configs by running `gheet_utils.py` or set second main.py argument to "load"
 
 **Step 4:** Start experiment with given ID:
 
 ```
-main.py [experiment_id]
+main.py [experiment_id:int] [optional: load:str]
 ```

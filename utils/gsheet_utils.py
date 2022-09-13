@@ -30,7 +30,7 @@ def formatDF(file):
                 line[k] = str(v)
     return f
 
-def get_configs_from_gsheet():
+def get_configs_from_gsheet(from_main=False):
     load_dotenv()
     sheet_id = os.getenv("SHEET_ID")
     configs = read_gsheet(sheet_id, "configs")
@@ -52,8 +52,10 @@ def get_configs_from_gsheet():
                 obj["use_case_config"][key] = v
             else:
                 print(f"Key {k} not assignable")
-
-        fpath = os.path.join(os.pardir, "configs",("config" + str(experiment_id) + ".json")).replace("\\","/")
+        if from_main:
+            fpath = os.path.join("configs",("config" + str(experiment_id) + ".json")).replace("\\","/")
+        else:
+            fpath = os.path.join(os.pardir, "configs",("config" + str(experiment_id) + ".json")).replace("\\","/")
         with open(fpath, "w+") as fo:
             json.dump(obj, fo)
         print(f"Saved Config{experiment_id} to path: {fpath}")
