@@ -12,6 +12,7 @@ logger = logging.getLogger("main")
 
 # Surpress PyTorch warning
 warnings.filterwarnings("ignore", message="To copy construct from a tensor, it is") 
+warnings.filterwarnings("ignore", message="Could not import matplotlib.pyplot") 
 
 from locale import normalize
 import sys
@@ -168,13 +169,13 @@ class ExperimentRunner:
             ys.append([_y for _y in c.get("y").values()][0])
         # NOTE: is minimize
         best = self.candidates[pd.DataFrame(ys).idxmin()[0]]
-        logger.info(f"Best Candidat found: {best}")
+        logger.info(f"Best candidate found:\n {json.dumps(best, indent=2)}")
         return best
 
  
         
     def run_optimization_loop(self):
-        logger.info(f"Starting Optimization Run with Evaluation Budget of >{self.eval_budget}<")
+        logger.info(f"Starting optimization run with evaluation budget of >{self.eval_budget}<")
         _start = time.monotonic()
         self.experiment_start_dts = datetime.now().isoformat()
         _start_trial = time.monotonic()
@@ -227,7 +228,7 @@ def check_sysargs():
     if "load" in sys.argv:
         get_configs_from_gsheet(from_main=True)
         if len(sys.argv) <= 2 :
-            print("No Experiment ID detected. Just files loaded. Going to exit")
+            print("No experiment ID detected. Re-loaded only config files. Going to exit")
             sys.exit()
         sys.argv.remove("load")
     if len(sys.argv) < 2 :
