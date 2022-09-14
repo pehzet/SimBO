@@ -12,8 +12,8 @@ from botorch.utils.transforms import unnormalize, normalize
 from torch.quasirandom import SobolEngine
 
 from algorithms.AlgorithmRunner import AlgorithmRunner
-from pathlib import Path
-import pickle
+
+
 
 
 # def get_initial_points(dim, n_pts, seed=0):
@@ -29,7 +29,7 @@ class SaasboRunner(AlgorithmRunner):
         self.warmup_steps: int = warmup_steps
         self.num_samples: int = num_samples
         self.thinning: int = thinning
-        self.median_lengthscales = None
+
         logger.info(f"Running on device: {device}")
 
 
@@ -38,15 +38,15 @@ class SaasboRunner(AlgorithmRunner):
         # gp = SaasFullyBayesianSingleTaskGP(
         #     train_X=self.X, train_Y=self.Y, train_Yvar=torch.full_like(self.Y, 1e-6), outcome_transform=Standardize(m=1)
         # )
-        gp = SaasFullyBayesianSingleTaskGP(
+        model = SaasFullyBayesianSingleTaskGP(
             train_X=self.X, train_Y=self.Y, train_Yvar=self.Yvar, outcome_transform=Standardize(m=1)
         )
         fit_fully_bayesian_model_nuts(
-            gp, warmup_steps=self.warmup_steps, num_samples=self.num_samples, thinning=self.thinning, disable_progbar=True
+            model, warmup_steps=self.warmup_steps, num_samples=self.num_samples, thinning=self.thinning, disable_progbar=True
         )
-        self.median_lengthscales = gp.median_lengthscale if self.median_lengthscales == None else torch.cat((self.median_lengthscales, gp.median_lengthscale), dim=0)
+        self.lengthscales = torch.cat((self.lengthscales, model.median_lengthscale), dim=0)if self.lengthscales is not None else model.median_lengthscale 
 
-        EI = qExpectedImprovement(model=gp, best_f=self.Y.max())
+        EI = qExpectedImprovement(model=model, best_f=self.Y.max())
         self.X_next, acq_values = optimize_acqf(
             EI,
             bounds=torch.cat((torch.zeros(1, self.dim), torch.ones(1, self.dim))).to(dtype=self.dtype, device=self.device),
@@ -54,6 +54,9 @@ class SaasboRunner(AlgorithmRunner):
             num_restarts=10,
             raw_samples=1024,
         )
+
+        acq_values=torch.unsqueeze(acq_values, dim=0) if acq_values.ndim==0 else acq_values
+        self.acq_values = torch.cat((self.acq_values, acq_values), dim=0) if self.acq_values is not None else acq_values
        
         logger.debug(f"Next suggested candidate(s) (SAASBO): {self.X_next}")
         return self.X_next

@@ -25,7 +25,7 @@ from pathlib import Path
 
 
 from algorithms.AlgorithmRunner import AlgorithmRunner
-from icecream import ic
+
 
 
 @dataclass
@@ -118,7 +118,7 @@ class TurboRunner(AlgorithmRunner):
         with gpytorch.settings.max_cholesky_size(float("inf")):
                 # Fit the model
             fit_gpytorch_model(mll)
-        
+            self.lengthscales = torch.cat((self.lengthscales, model.covar_module.base_kernel.lengthscale), dim=0) if not self.lengthscales == None else model.covar_module.base_kernel.lengthscale 
             self.X_next = self.generate_batch(
                 model=model,
                 Y=train_Y,

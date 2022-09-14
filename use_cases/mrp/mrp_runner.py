@@ -265,6 +265,20 @@ class MRPRunner():
         params = sorted(params, key=lambda p: p["name"].split("_",1))
         return params
 
+    def format_feature_importance(self, fi: torch.Tensor):
+        if fi == "na":
+            return fi
+        pm_name = [pm.get("name") for pm in self.param_meta]
+        if fi.ndim == 1:
+            fi = fi.tolist()
+            return dict((k,v) for k,v in zip(pm_name, fi))
+  
+        fi_per_trial = []
+        for _fi in fi:
+            _fi = _fi.tolist()
+            fi_dict = dict((k,v) for k,v in zip(pm_name, _fi))
+            fi_per_trial.append(fi_dict)
+        return fi_per_trial
 
     def run_solver(self, params):
         '''

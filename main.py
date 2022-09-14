@@ -119,7 +119,7 @@ class ExperimentRunner:
             "best_candidat" : self.best_candidat,
             "candidates": self.candidates,
             "final_feature_importances" : "na",
-            "feature_importances" : self.feature_importances
+            "feature_importances" : self.use_case_runner.format_feature_importance(self.feature_importances)
         }
         ffolder = "data/" + "experiment_" + str(self.experiment_id)
         fpath = ffolder +"/" + "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json"
@@ -137,30 +137,23 @@ class ExperimentRunner:
         for i, x in enumerate(xx):
             self.current_candidat +=1
             y = yy[i]
-            #y_i = self.ys_raw[self.current_candidat -1]
-            #x_json = dict()
-            # for x_d in xx:
-            #     x_json[str(x_d.get("id","material") + "_" + x_d.get("name","param"))] = x_d.get("value")
             ts = self.algorithm_runner.get_technical_specs()
             self.candidates.append({
                 "id" : self.current_candidat,
                 "sm" : ts.get("sm", "na"),
                 "acqf" : ts.get("acqf", "na"),
-                "tr" : self.get_tr_from_runner(),
+                "tr" : self.algorithm_runner.get_tr(),
                 "x" : self.use_case_runner.format_x_for_candidate(x),
                 "y" : self.use_case_runner.format_y_for_candidate(y),
+                "fi" : self.use_case_runner.format_feature_importance(self.algorithm_runner.get_feature_importance()),
                 "ei" : "na",
-                "y_pred" : "na"
+                "y_pred" : "na",
+                "acq_value" : self.algorithm_runner.get_acq_value((self.current_candidat - self.algorithm_runner.num_init - 1))
             })
     
-    def format_lengthscale_to_feature_importance():
-        pass
 
-    def get_tr_from_runner(self):
-        if self.algorithm == "turbo":
-            return self.algorithm_runner.num_restarts + 1
-        else:
-            return None
+
+
 
     def get_best_candidate(self):
         # TODO: make oneline?
@@ -220,6 +213,7 @@ class ExperimentRunner:
         self.total_duration_seconds =  _end -_start
         
         self.best_candidat = self.get_best_candidate()
+        self.feature_importances = self.algorithm_runner.get_feature_importance(all=True)
         
         self.algorithm_runner.terminate_experiment()
         self.save_experiment_json()
