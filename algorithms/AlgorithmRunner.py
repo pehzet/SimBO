@@ -22,9 +22,10 @@ class AlgorithmRunner:
         self.Y_next = None
         self.Yvar = None
         self.Yvar_next = None
+        self.Y_pred = None
+        self.acq_values = None
+        self.minimize = True
 
-        self.minimize = True
-        self.minimize = True
         self.total_runtime = 0
         self.batch_runtimes = list()
         self.num_restarts = 0
@@ -34,7 +35,7 @@ class AlgorithmRunner:
         self.device=device
         self.dtype=dtype
 
-
+        self.lengthscales = None
     
     def suggest_initial(self):
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=0)
@@ -50,7 +51,11 @@ class AlgorithmRunner:
             self.Yvar = torch.cat((self.Yvar, self.Yvar_next),  dim=0) if self.Yvar is not None else self.Yvar_next
         self.X = torch.cat((self.X, self.X_next), dim=0) if self.X is not None else self.X_next
         self.Y = torch.cat((self.Y, self.Y_next), dim=0) if self.Y is not None else self.Y_next
-
+    def get_tr(self):
+        if self.get_name() == "turborunner":
+            return self.num_restarts + 1
+        else:
+            return "na"
     def get_name(self):
         return  self.__class__.__name__.lower()
     def get_technical_specs(self):
@@ -67,5 +72,26 @@ class AlgorithmRunner:
         Path(path).mkdir(parents=True, exist_ok=True)
         with open((path + "/" + str(self.experiment_id) + "_" + str(self.replication) + "_" + self.get_name() +  ".pkl"), "wb") as fo:
             pickle.dump(self, fo)
+    
+    def get_y_pred(self, index=-1):
+        """
+        NOTE: y-pred not implemented. Returning None
+        """
+        return None
+    def get_acq_value(self, index=-1):
+        if self.acq_values == None:
+            return "na"
+        if self.acq_values.ndim == 0:
+            return self.acq_values.item()
+        return self.acq_values[index].item()
+    def get_feature_importance(self, all=False, index=-1):
 
+        if self.lengthscales == None:
+            return "na"
+        if all==False:
+            lengthscale = self.lengthscales[index]
+        else:
+            lengthscale = self.lengthscales
 
+        return torch.reciprocal(lengthscale)
+        

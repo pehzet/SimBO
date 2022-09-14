@@ -1,5 +1,9 @@
 # Changelog
 
+## 14.09.2022 (Phil)
+- acquisition value implementiert
+- feature importance hinzugefügt
+
 ## 13.09.2022 (Phil)
 - Algorithmus Runner Klasse erstellt, aktuelle Runner erben davon
 - MRP stochastic_method via Sheets konfigurierbar
