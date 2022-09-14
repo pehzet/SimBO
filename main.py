@@ -64,7 +64,7 @@ class ExperimentRunner:
         fpath = "configs/config" + str(self.experiment_id) +".json"
         with open(fpath, 'r') as file:
             config = json.load(file)
-        #print("Config loaded")
+        
         logger.info(f"Configuration for experiment >{self.experiment_id}< successfully loaded.")
         return config
 
