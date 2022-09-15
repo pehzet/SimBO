@@ -11,7 +11,7 @@ logger = logging.getLogger("mrp")
 from pandas import DataFrame
 from utils.gsheet_utils import read_gsheet, formatDF
 from use_cases.mrp.mrp_solver import run_mrp
-from use_cases.mrp.mrp_sim import mrp_simulation, init_mrp_sim
+from use_cases.mrp.mrp_sim import MRPSimulation, init_mrp_sim
 import os
 import torch
 import numpy as np
@@ -44,7 +44,7 @@ class MRPRunner():
         self.X.append(x)
         releases = self.run_solver(x)
         for _ in range(self.num_solver_runs):
-            result = mrp_simulation(releases, stochastic_method = self.stochastic_method).run_simulation()
+            result = MRPSimulation(releases, stochastic_method = self.stochastic_method).run_simulation()
             self.Y_raw.append(result)
         y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_solver_runs:])
   

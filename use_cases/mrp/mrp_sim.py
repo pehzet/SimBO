@@ -2,7 +2,7 @@ import random
 import math
 import copy
 import logging
-
+import sys
 logger = logging.getLogger("sim")
 
 class g:
@@ -12,48 +12,123 @@ def init_mrp_sim(bom, materials, orders, sim_time=100):
     g.bom = bom 
     g.materials = materials
     g.orders = orders
-
     g.sim_time = sim_time
-    for o in g.orders:
-        o["backorder"] = False
+
  
 
+class Material():
+    instances = []
+    def __init__(self, material_dict) -> None:
+        for k, v in material_dict.items():
+            setattr(self, k, v)
+        self.quantity_in_stock = 0
+        Material.instances.append(self)
 
+    def calc_storage_costs(self):
+        return round(self.quantity_in_stock * self.storage_cost_rate,2)
+    def calc_penalty_costs(self, quantity):
+        return round(self.penalty_cost_rate * quantity)
+    @classmethod
+    def get_material_by_id(cls, material_id):
+        return [m for m in cls.instances if m.id == material_id][0]
+    @classmethod
+    def get_material_in_stock_by_id(cls, material_id):
+        m_in_stock_list = [m for m in cls.instances if m.id == material_id and m.quantity_in_stock >0]
+        if len(m_in_stock_list) == 0:
+            return None
+        return m_in_stock_list[0]
+    @classmethod
+    def check_if_materials_unique(cls):
+        material_ids = [m.id for m in cls.instances]
+        if len(material_ids) > len(set(material_ids)):
+            logger.error("Materials not unique! Can not run valide Simulation. Going to exit. Check Spreadsheet for errors")
+            return False
+        return True
+    @classmethod
+    def calc_storage_costs_all(cls):
+        return [m.quantity_in_stock * m.storage_cost_rate for m in cls.instances if m.quantity_in_stock > 0]
+    def reduce_quantity_in_stock(self, quantity, is_parent_quant=False, quantity_per_unit = 0):
+        if is_parent_quant:
+            self.quantity_in_stock = max((math.floor(self.quantity_in_stock - (quantity*quantity_per_unit))),0)
+        else:
+            if quantity > self.quantity_in_stock:
+                logger.warning("Reduction Quantity > Quantity in Stock. Going to set it to 0")
+                self.quantity_in_stock = 0
+            else:
+                self.quantity_in_stock -= quantity
+        return self.quantity_in_stock
+class Order():
+    instances = []
+    def __init__(self, order_dict) -> None:
+        for k, v in order_dict.items():
+            setattr(self, k, v)
+        self.backorder = False
+        Order.instances.append(self)
 
-
-
-
-class mrp_simulation:
-    def __init__(self, releases, stochastic_method="discrete"):
-        self.releases = copy.deepcopy(releases)
+    @classmethod
+    def get_orders_in_period(cls, period):
+        return [o for o in cls.instances if (o.period == period or o.backorder == True) and o.quantity >= 0]
+class Release():
+    instances = []
+    def __init__(self, release_dict) -> None:
+        for k, v in release_dict.items():
+            setattr(self, k, v)
+        self.arrival = -1
+        self.backorder = False
+        self.material_id = self.material
+        self.is_released = False
+        Release.instances.append(self)
+    
+    @classmethod
+    def get_arrivals(cls, period):
+        return [r for r in cls.instances if r.arrival == period or (r.backorder == True and r.quantity >= 0)]
+    @classmethod
+    def get_releases(cls, period):
+        return [r for r in cls.instances if (r.period == period or r.backorder == True) and r.is_released == False]
+class Child():
+    def __init__(self, child_id, quantity, quantity_per_unit) -> None:
+        self.id = child_id
+        self.quantity = quantity
+        self.quantity_per_unit = quantity_per_unit
+class MRPSimulation():
+    def __init__(self, releases, stochastic_method="discrete") -> None:
+        # Reset class instances
+        Material.instances = []
+        Release.instances = []
+        Order.instances = []
+        self.releases = [Release(r) for r in copy.deepcopy(releases)]
         self.costs = []
         self.stock = []
         self.sl = []
         self.fulfilled_orders = []
-        self.materials = copy.deepcopy(g.materials)
-        self.bom = copy.deepcopy(g.bom)
-        self.orders = copy.deepcopy(g.orders)
+        self.materials = [Material(m) for m in copy.deepcopy(g.materials)]
+        self.bom = copy.deepcopy(g.bom) # no deepcopy required?
+        self.orders = [Order(o) for o in copy.deepcopy(g.orders)]
         self.stochastic_method = stochastic_method
+        
+        self.check()
+
+    def check(self):
+        """
+        Check if MRP Simulation Data is valid
+        """
+        checks = list()
+        checks.append(Material.check_if_materials_unique())
+        if False in checks:
+            sys.exit()
+        return True
     def get_bom_childs_with_quantity(self, parent_id, parent_quantity):
-        try: 
-            parent_id = str(parent_id)
-        except:
-            if parent_id.startswith("M") or parent_id.startswith("O"):
-                parent_id = parent_id.split("_")[1]
-            else:
-                logging.error("SOMETHING WRONG WITH PARENT ID")
 
         children = [b for b in self.bom if str(b["parent_id"]) == str(parent_id)]
+        if len(children) == 0:
+            return None
         bom_children_with_quant = []
-        for child in children:
-            child_quant = child["quantity"] * parent_quantity
-            bom_children_with_quant.append({
-                "child_id" : child["child_id"],
-                "quantity" : child_quant,
-                "quantity_per_unit" : child["quantity"]
-            })
+        for c in children:
+            child_quant = c["quantity"] * parent_quantity
+            bom_children_with_quant.append(
+                Child(c.get("child_id"),child_quant, c.get("quantity")))
         return bom_children_with_quant
-
+    
     def sample_lead_time_delay(self):
 
         if self.stochastic_method == "discrete":
@@ -66,7 +141,7 @@ class mrp_simulation:
             return 0
         logging.warn("No method for sample lead time delay selected. Return 0")
         return 0
-
+   
     def sample_quantity_reduction(self, quantity):
 
         if self.stochastic_method == "discrete":
@@ -79,122 +154,97 @@ class mrp_simulation:
             return 0
         logging.warn("No method for sample quantity reduction selected. Return 0")
         return 0
+
     def run_simulation(self):
-
-        for r in self.releases:
-            r["arrival"] = -1
-            r["backorder"] = False
-
-        for _ in range(g.sim_time):
+        # range starts with 1 and ends with sim_time + 1 (from start) + 1(to calc cost of previous period in case of backorder) 
+        for period in range(1, g.sim_time + 2):
             
-            period = _ + 1
-            for s in self.stock:
-                self.costs.append(s.get("quantity") * s.get("storage_cost_rate"))
-            arrivals_in_period = [r for r in self.releases if r.get("arrival") == period or (r.get("backorder") == True and r.get("quantity")>0)]
-            for arrival in arrivals_in_period:
-                material_id = str(arrival["material"])
-                mat_in_stock = [s for s in self.stock if s["material"] == material_id]
-                _quantity = arrival.get("quantity") - self.sample_quantity_reduction(arrival.get("quantity"))
-                if len(mat_in_stock) == 0:
-                    unit_cost, storage_cost_rate, penalty_cost_rate = [(m.get("unit_costs"), m.get("storage_cost_rate"), m.get("penalty_cost_rate")) for m in self.materials if str(m.get("id")) == material_id][0]
-                    self.stock.append({
-                        "material" : material_id,
-                        "quantity" : _quantity,
-                        "unit_cost" : unit_cost,
-                        "storage_cost_rate" : storage_cost_rate,
-                        "penalty_cost_rate" : penalty_cost_rate,
-
-                    })
+            # STEP 1: record storage sosts of last period
+            self.costs.extend(Material.calc_storage_costs_all())
+            
+            # STEP 2: Receive Releases from previous periods (called arrivals)  
+            arrivals_in_period = Release.get_arrivals(period)
+            for a in arrivals_in_period:
+                m = Material.get_material_by_id(a.material_id)
+                _quantity = a.quantity - self.sample_quantity_reduction(a.quantity)
+                if m.quantity_in_stock > 0:
+                    m.quantity_in_stock += _quantity
                 else:
-                    mat_in_stock[0]["quantity"] += _quantity
-
-                arrival["quantity"] -= _quantity
-
-            releases_in_period = [r for r in self.releases if r.get("period") == period or (r.get("backorder") == True and r.get("quantity")>0)]
-            for release in releases_in_period:
-                if not "backorder" in release.keys():
-                    release["backorder"] = False
-                material_id = str(release["material"])
-                _quant = release.get("quantity")
-                children = self.get_bom_childs_with_quantity(material_id, _quant)
-                quantities_possible = []
-                for child in children:
-                    child_in_stock_list = [s for s in self.stock if str(s["material"]) == str(child.get("child_id"))]
-                    if len(child_in_stock_list) == 0:
-                        quantity_possible = 0
-                    else:
-                        child_in_stock = child_in_stock_list[0]
-                        if child_in_stock["quantity"] < child.get("quantity"):
-                            quantity_possible = math.ceil((child_in_stock["quantity"]/child.get("quantity_per_unit")))
+                    m.quantity_in_stock = _quantity
+                a.quantity -= _quantity
+          
+            # STEP 3: Check if MRP-Release is possible and follow different release-cases 
+            releases_in_period = Release.get_releases(period)
+            # STEP 3.1: Check possible quantity of release depending on bom-children
+            for r in releases_in_period:
+                children = self.get_bom_childs_with_quantity(r.material_id, r.quantity)
+                if children is not None:
+                    quantities_possible = []
+                    for child in children:
+                        child_in_stock = Material.get_material_in_stock_by_id(child.id)
+                        # Case 1: No child quantity in stock i 0 -> no production possible
+                        if child_in_stock == None:
+                            quantity_possible = 0
+                        # Case 2: child quantity < required quantity -> calc possible quantity based on child quantity
+                        elif child_in_stock.quantity_in_stock < child.quantity:
+                            quantity_possible = math.ceil((child_in_stock.quantity_in_stock/child.quantity_per_unit))
+                        # Case 3: enough in stock -> full quantity can be release
                         else:
-                            quantity_possible = _quant
-                    quantities_possible.append(quantity_possible)
+                            quantity_possible = r.quantity
+                        quantities_possible.append(quantity_possible)
 
-                if len(quantities_possible) > 0 and any(qp < _quant for qp in quantities_possible):
-                
-                    _release = copy.deepcopy(release)
-                    _release["backorder"] = True
-                    _release["quantity"] = _quant - min(quantities_possible)
-                    _release["arrival"] = period + _release.get("lead_time") + self.sample_lead_time_delay()
-                    _quant = min(quantities_possible)
-                    self.releases.append(_release)
-            
-                release["arrival"] = release["period"] + release["lead_time"] + self.sample_lead_time_delay()
-
-                release["quantity"] =  _quant
-                for child in children:
-                    child_in_stock_list = [s for s in self.stock if s["material"] == str(child.get("child_id"))]
-                    if len(child_in_stock_list) > 0:
-                        child_in_stock = child_in_stock_list[0]
-                        child_in_stock["quantity"] = max((math.floor(child_in_stock["quantity"] - (_quant*child.get("quantity_per_unit")))),0)
+                    # STEP 3.2 : Create seperate Backorder if quantity in stock of one child is not sufficient
+                    if any(qp < r.quantity for qp in quantities_possible):
+                        _release = Release(r.__dict__) #copy.deepcopy(r)
+                        _release.backorder = True
+                        _release.quantity -= min(quantities_possible)
+                        _release.arrival = period + _release.lead_time + self.sample_lead_time_delay()
+                        r.quantity = min(quantities_possible)
                     
-
-            orders_in_period = [o for o in self.orders if (o["period"] == period or o["backorder"] == True) and o["order_id"] not in self.fulfilled_orders]
+                    # STEP 3.3: reduce quantity in stock of each child depending on release quantity
+                    for child in children:
+                        child_in_stock = Material.get_material_in_stock_by_id(child.id)
+                        if child_in_stock is not None:
+                            child_in_stock.reduce_quantity_in_stock(r.quantity, is_parent_quant=True, quantity_per_unit = child.quantity_per_unit)
+                # STEP 3.4: set arrival time of release and mark as released 
+                r.arrival = r.period + r.lead_time + self.sample_lead_time_delay()
+                r.is_released = True
             
+            # STEP 4: Fulfill orders in Period
+            orders_in_period = Order.get_orders_in_period(period)         
             for o in orders_in_period:
-
-                m_id = str(o.get("id"))
-                                
-                if o["backorder"] == True:
-                    penalty_cost_rate = [(m.get("penalty_cost_rate")) for m in self.materials if str(m.get("id")) == m_id][0]
-                    self.costs.append(o.get("quantity")*penalty_cost_rate)
-                _fulfill_quant = 0
-                product_in_stock_list = [s for s in self.stock if s["material"] == m_id]
-                product_in_stock = product_in_stock_list[0] if len(product_in_stock_list) > 0 else None
+                # STEP 4.1 Append Penalty costs of last period if is_backorder
+                m = Material.get_material_by_id(o.id)
+                if o.backorder:
+                    self.costs.append(m.calc_penalty_costs(o.quantity))
                 
+                
+                # Set fullfilment quantity case specific
+                _fulfill_quant = 0
                 # Case Fulfillment = 0
-                if product_in_stock == None or product_in_stock.get("quantity") == 0:
-                    if o["backorder"] == False:
+                if m.quantity_in_stock <= 0:
+                    if not o.backorder:
                             self.sl.append(0)
-                            o["backorder"] = True
-                    penalty_cost_rate = [(m.get("penalty_cost_rate")) for m in self.materials if str(m.get("id")) == m_id][0]
-                    self.costs.append(o.get("quantity")*penalty_cost_rate)
+                            o.backorder = True
+                    self.costs.append(m.calc_penalty_costs(o.quantity))
                 # Case partly Fulfillment
-                elif o.get("quantity") > product_in_stock.get("quantity"):
-                    _fulfill_quant = product_in_stock.get("quantity")
-                    penalty_cost_rate = product_in_stock.get("penalty_cost_rate")
-                    if o["backorder"] == False:
-                        o["backorder"] = True
+                elif o.quantity > m.quantity_in_stock:
+                    _fulfill_quant = m.quantity_in_stock
+                    if not o.backorder:
+                        o.backorder = True
                         self.sl.append(0)
-                    self.costs.append((o.get("quantity") - _fulfill_quant)*penalty_cost_rate)
-                    o["quantity"] -= _fulfill_quant
-                    product_in_stock["quantity"] -= _fulfill_quant
+                    self.costs.append(m.calc_penalty_costs((o.quantity - _fulfill_quant)))
+                    o.quantity -= _fulfill_quant
+                    m.quantity_in_stock -= _fulfill_quant
                 # Case complete Fullfilment
-                elif o.get("quantity") <= product_in_stock.get("quantity"):
-                    if o["backorder"] == False:
+                elif o.quantity <= m.quantity_in_stock:
+                    if not o.backorder:
                         self.sl.append(1)
-                    _fulfill_quant = o.get("quantity")
-                    self.fulfilled_orders.append(o.get("order_id"))
+                    _fulfill_quant = o.quantity
+                    o.quantity = 0
+                
                 else:
                     logging.error("Error at Order Fulfillment. Let order pass.")
-
+                
         assert len(self.costs) > 0 and len(self.sl) > 0
-        logging.debug(f"Finished with costs: {int(sum(self.costs))} and service level : {float(int((sum(self.sl)/len(self.sl))*100)/100)} ")
-        
-        #return({"costs" : int(sum(self.costs)), "service_level" : float(int((sum(self.sl)/len(self.sl))*100)/100)})
-
-        # TODO: Return service level along with costs
- 
-  
         return {"costs" : int(sum(self.costs)), "service_level" : float(int((sum(self.sl)/len(self.sl))*100)/100)}
-
