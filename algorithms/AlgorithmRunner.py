@@ -30,8 +30,8 @@ class AlgorithmRunner:
         self.batch_runtimes = list()
         self.num_restarts = 0
         self.eval_runtimes_second = list()
-        self.seed = 0
-
+        self.seed = 12345
+        self.eval_budget = None
         self.device=device
         self.dtype=dtype
 

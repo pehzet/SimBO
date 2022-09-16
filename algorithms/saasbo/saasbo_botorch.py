@@ -14,13 +14,6 @@ from torch.quasirandom import SobolEngine
 from algorithms.AlgorithmRunner import AlgorithmRunner
 
 
-
-
-# def get_initial_points(dim, n_pts, seed=0):
-#     sobol = SobolEngine(dimension=dim, scramble=True, seed=seed)
-#     X_init = sobol.draw(n=n_pts).to(dtype=dtype, device=device)
-#     return X_init
-
 class SaasboRunner(AlgorithmRunner):
     def __init__(self, experiment_id,  replication, dim, num_init, batch_size, warmup_steps,num_samples,thinning, device, dtype):
         super().__init__(experiment_id, replication, dim, batch_size, num_init, device, dtype)

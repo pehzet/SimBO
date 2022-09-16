@@ -10,7 +10,8 @@ logger = logging.getLogger("mrp")
 # from main import run_solver
 from pandas import DataFrame
 from utils.gsheet_utils import read_gsheet, formatDF
-from use_cases.mrp.mrp_solver import run_mrp
+
+from use_cases.mrp.mrp_solver import MRPSolver
 from use_cases.mrp.mrp_sim import MRPSimulation, init_mrp_sim
 import os
 import torch
@@ -289,9 +290,10 @@ class MRPRunner():
         #params = format_params_for_mrp(params)
   
         try:
-            mrp_results = run_mrp(self.bom, self.materials, self.orders, self.inventory, params,horizon=100)
-     
-            releases = self.get_releases_from_results(mrp_results,params)
+            # mrp_results = run_mrp(self.bom, self.materials, self.orders, self.inventory, params,horizon=100)
+            # releases = self.get_releases_from_results(mrp_results,params)
+            releases = MRPSolver(self.bom, self.materials, self.orders, self.inventory, params,horizon=100).run()
+            
             
             return releases
         except Exception as e:

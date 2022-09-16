@@ -195,7 +195,7 @@ class MRPSimulation():
 
                     # STEP 3.2 : Create seperate Backorder if quantity in stock of one child is not sufficient
                     if any(qp < r.quantity for qp in quantities_possible):
-                        _release = Release(r.__dict__) #copy.deepcopy(r)
+                        _release = Release(r.__dict__) 
                         _release.backorder = True
                         _release.quantity -= min(quantities_possible)
                         _release.arrival = period + _release.lead_time + self.sample_lead_time_delay()

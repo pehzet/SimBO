@@ -17,3 +17,6 @@ algorithms\moo
 algorithms\bo
 notes.txt
 outcmaes
+use_cases/mrp/mrp_sim_classes.py
+use_cases/mrp/mrp_solver_OOP.py
+use_cases/mrp/mrp_solver_backup.py
