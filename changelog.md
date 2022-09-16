@@ -1,5 +1,12 @@
 # Changelog
 
+## 16.09.2022
+- Sobol Runner 
+- Brute Force Runner
+- MRP Solver OOP
+# 15.09.2022
+- MRP Simulation OOP
+
 ## 14.09.2022 (Phil)
 - acquisition value implementiert
 - feature importance hinzugefügt
