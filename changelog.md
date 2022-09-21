@@ -1,10 +1,13 @@
 # Changelog
 
+## 21.09.2022
+- wording changes at mrp_runner (inventory -> stock, demand -> orders)
+- Implemented new BOMs etc. in Gsheet
 ## 16.09.2022
 - Sobol Runner 
 - Brute Force Runner
 - MRP Solver OOP
-# 15.09.2022
+## 15.09.2022
 - MRP Simulation OOP
 
 ## 14.09.2022 (Phil)

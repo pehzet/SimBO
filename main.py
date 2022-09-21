@@ -14,7 +14,7 @@ logger = logging.getLogger("main")
 warnings.filterwarnings("ignore", message="To copy construct from a tensor, it is") 
 warnings.filterwarnings("ignore", message="Could not import matplotlib.pyplot") 
 
-from locale import normalize
+
 import sys
 import json
 import os
@@ -159,9 +159,6 @@ class ExperimentRunner:
                 "acq_value" : self.algorithm_runner.get_acq_value((self.current_candidat - self.algorithm_runner.num_init - 1))
             })
     
-
-
-
 
     def get_best_candidate(self):
         # TODO: make oneline?
