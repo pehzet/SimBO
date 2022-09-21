@@ -30,7 +30,7 @@ class MRPRunner():
         self.bom = None
         self.materials = None
         self.orders = None
-        self.inventory = None
+        self.stock = None
         self.init_sheets() # to get the variables above
         self.minimize = True
         self.param_meta = self.get_param_meta_from_materials()
@@ -168,8 +168,8 @@ class MRPRunner():
         self.bom = [b for b in formatDF(read_gsheet(sheet_id, "bom")) if b["bom_id"] == int(self.bom_id)]
 
         self.materials = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "materials")))
-        self.orders = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "demand")), filter_by_id=True)
-        self.inventory = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "inventory")))
+        self.orders = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "orders")), filter_by_id=True)
+        self.stock = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "stock")))
         logger.info("Sheets initialized")
    
 
@@ -286,22 +286,11 @@ class MRPRunner():
         Expects: {material_param_name : value} (one dict, no list!)
         Returns: Releases, bom, materials. orders (all needed for sim)
         '''
-        # print(f"params: {params}")
-        #params = format_params_for_mrp(params)
-  
         try:
-            # mrp_results = run_mrp(self.bom, self.materials, self.orders, self.inventory, params,horizon=100)
-            # releases = self.get_releases_from_results(mrp_results,params)
-            releases = MRPSolver(self.bom, self.materials, self.orders, self.inventory, params,horizon=100).run()
-            
-            
+            releases = MRPSolver(self.bom, self.materials, self.orders, self.stock, params,horizon=200).run()
             return releases
         except Exception as e:
             logger.error(f"Error at MRP Run: {traceback.format_exc()}")
-            
-            #print("Error at MRP Run")
-            #print(traceback.format_exc())
-        
             return None
 
 

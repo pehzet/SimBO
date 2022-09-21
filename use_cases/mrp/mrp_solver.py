@@ -39,13 +39,13 @@ class Material():
         return releases
 
 class MRPSolver():
-    def __init__(self, bom, materials, orders, inventory, parameters, horizon=100) -> None:
+    def __init__(self, bom, materials, orders, stock, parameters, horizon=100) -> None:
         self.horizon = horizon
         self.bom = bom # 
         self.parameters = parameters
         self.orders = orders
         self.parameters = parameters
-        self.inventory = inventory
+        self.stock = stock
         self.materials = [self.init_material(m) for m in materials]
 
     def init_material(self, m):
@@ -53,7 +53,7 @@ class MRPSolver():
         bom = [b for b in self.bom if b.get("parent_id") == mid]
         ss = [p.get("value") for p in self.parameters if p.get("id") == mid and p.get("name") == "safety_stock"][0]
         st = [p.get("value") for p in self.parameters if p.get("id") == mid and p.get("name") == "safety_time"][0]
-        _is = [i.get("stock") for i in self.inventory if i.get("id") == mid]
+        _is = [i.get("stock") for i in self.stock if i.get("id") == mid]
         initial_stock = _is[0] if len(_is) > 0 else 0
         return Material(m, bom, initial_stock, ss, st, self.horizon)
 
