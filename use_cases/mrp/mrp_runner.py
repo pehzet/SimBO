@@ -273,7 +273,7 @@ class MRPRunner():
         pm_name = [pm.get("name") for pm in self.param_meta]
         if fi.ndim == 1:
             fi = fi.tolist()
-            return dict((k,v) for k,v in zip(pm_name, fi))
+            return [dict((k,v) for k,v in zip(pm_name, fi))]
   
         fi_per_trial = []
         for _fi in fi:

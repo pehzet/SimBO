@@ -114,6 +114,7 @@ class ExperimentRunner:
      
     def save_experiment_json(self):
         fi = self.use_case_runner.format_feature_importance(self.feature_importances)
+
         obj = {
             "experiment_id": self.experiment_id,
             "replication" : self.replication,
@@ -128,7 +129,7 @@ class ExperimentRunner:
             "eval_runtimes" : self.eval_runtimes_second,
             "best_candidat" : self.best_candidat,
             "candidates": self.candidates,
-            "final_feature_importances" : fi[-1],
+            "final_feature_importances" : fi[-1] if fi != "na" else "na",
             "feature_importances" : fi
         }
         ffolder = "data/" + "experiment_" + str(self.experiment_id)
