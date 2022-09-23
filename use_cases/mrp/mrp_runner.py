@@ -20,7 +20,7 @@ import traceback
 from dotenv import load_dotenv
 load_dotenv()
 from botorch.utils.transforms import unnormalize, normalize
-
+from icecream import ic
 class MRPRunner():
 
     def __init__(self, bom_id, num_solver_runs=5, stochastic_method=True):
@@ -41,6 +41,7 @@ class MRPRunner():
 
 
     def eval(self, x, ):
+
         x = self.transform_x(x)
         self.X.append(x)
         releases = self.run_solver(x)

@@ -3,12 +3,14 @@ import math
 import copy
 import logging
 import sys
-logger = logging.getLogger("sim")
+from icecream import ic
+
+logger = logging.getLogger("mrpsim")
 
 class g:
     pass
 
-def init_mrp_sim(bom, materials, orders, sim_time=100):
+def init_mrp_sim(bom, materials, orders, sim_time=200):
     g.bom = bom 
     g.materials = materials
     g.orders = orders
@@ -17,36 +19,18 @@ def init_mrp_sim(bom, materials, orders, sim_time=100):
  
 
 class Material():
-    instances = []
+
     def __init__(self, material_dict) -> None:
         for k, v in material_dict.items():
             setattr(self, k, v)
         self.quantity_in_stock = 0
-        Material.instances.append(self)
+  
 
     def calc_storage_costs(self):
         return round(self.quantity_in_stock * self.storage_cost_rate,2)
     def calc_penalty_costs(self, quantity):
         return round(self.penalty_cost_rate * quantity)
-    @classmethod
-    def get_material_by_id(cls, material_id):
-        return [m for m in cls.instances if m.id == material_id][0]
-    @classmethod
-    def get_material_in_stock_by_id(cls, material_id):
-        m_in_stock_list = [m for m in cls.instances if m.id == material_id and m.quantity_in_stock >0]
-        if len(m_in_stock_list) == 0:
-            return None
-        return m_in_stock_list[0]
-    @classmethod
-    def check_if_materials_unique(cls):
-        material_ids = [m.id for m in cls.instances]
-        if len(material_ids) > len(set(material_ids)):
-            logger.error("Materials not unique! Can not run valide Simulation. Going to exit. Check Spreadsheet for errors")
-            return False
-        return True
-    @classmethod
-    def calc_storage_costs_all(cls):
-        return [m.quantity_in_stock * m.storage_cost_rate for m in cls.instances if m.quantity_in_stock > 0]
+
     def reduce_quantity_in_stock(self, quantity, is_parent_quant=False, quantity_per_unit = 0):
         if is_parent_quant:
             self.quantity_in_stock = max((math.floor(self.quantity_in_stock - (quantity*quantity_per_unit))),0)
@@ -58,18 +42,19 @@ class Material():
                 self.quantity_in_stock -= quantity
         return self.quantity_in_stock
 class Order():
-    instances = []
+
     def __init__(self, order_dict) -> None:
         for k, v in order_dict.items():
+            if k.startswith("Unnamed"):
+                continue
             setattr(self, k, v)
         self.backorder = False
-        Order.instances.append(self)
 
-    @classmethod
-    def get_orders_in_period(cls, period):
-        return [o for o in cls.instances if (o.period == period or o.backorder == True) and o.quantity >= 0]
+
+
+
 class Release():
-    instances = []
+   
     def __init__(self, release_dict) -> None:
         for k, v in release_dict.items():
             setattr(self, k, v)
@@ -77,14 +62,9 @@ class Release():
         self.backorder = False
         self.material_id = self.material
         self.is_released = False
-        Release.instances.append(self)
+     
     
-    @classmethod
-    def get_arrivals(cls, period):
-        return [r for r in cls.instances if r.arrival == period or (r.backorder == True and r.quantity >= 0)]
-    @classmethod
-    def get_releases(cls, period):
-        return [r for r in cls.instances if (r.period == period or r.backorder == True) and r.is_released == False]
+
 class Child():
     def __init__(self, child_id, quantity, quantity_per_unit) -> None:
         self.id = child_id
@@ -92,10 +72,6 @@ class Child():
         self.quantity_per_unit = quantity_per_unit
 class MRPSimulation():
     def __init__(self, releases, stochastic_method="discrete") -> None:
-        # Reset class instances
-        Material.instances = []
-        Release.instances = []
-        Order.instances = []
         self.releases = [Release(r) for r in copy.deepcopy(releases)]
         self.costs = []
         self.stock = []
@@ -105,20 +81,42 @@ class MRPSimulation():
         self.bom = copy.deepcopy(g.bom) # no deepcopy required?
         self.orders = [Order(o) for o in copy.deepcopy(g.orders)]
         self.stochastic_method = stochastic_method
-        
         self.check()
+    def get_material_by_id(self, material_id):
+        return [m for m in self.materials if m.id == material_id][0]
+    def get_material_in_stock_by_id(self, material_id):
+        m_in_stock_list = [m for m in self.materials if m.id == material_id and m.quantity_in_stock >0]
+        if len(m_in_stock_list) == 0:
+            return None
+        return m_in_stock_list[0]
+    def check_if_materials_unique(self):
+        material_ids = [m.id for m in self.materials]
+        if len(material_ids) > len(set(material_ids)):
+            logger.error("Materials not unique! Can not run valide Simulation. Going to exit. Check Spreadsheet for errors")
+            return False
+        return True
+    def calc_storage_costs_all(self):
+        return [m.quantity_in_stock * m.storage_cost_rate for m in self.materials if m.quantity_in_stock > 0]
+
+    def get_orders_in_period(self, period):
+        return [o for o in self.orders if (o.period == period or o.backorder == True) and o.quantity > 0]
+
+    def get_arrivals(self, period):
+        return [r for r in self.releases if r.arrival == period or (r.backorder == True and r.quantity >= 0)]
+
+    def get_releases(self, period):
+        return [r for r in self.releases if (r.period == period or r.backorder == True) and r.is_released == False]
 
     def check(self):
         """
         Check if MRP Simulation Data is valid
         """
         checks = list()
-        checks.append(Material.check_if_materials_unique())
+        checks.append(self.check_if_materials_unique())
         if False in checks:
             sys.exit()
         return True
     def get_bom_childs_with_quantity(self, parent_id, parent_quantity):
-
         children = [b for b in self.bom if str(b["parent_id"]) == str(parent_id)]
         if len(children) == 0:
             return None
@@ -130,14 +128,14 @@ class MRPSimulation():
         return bom_children_with_quant
     
     def sample_lead_time_delay(self):
-
         if self.stochastic_method == "discrete":
             values = [0,1,2,3,4,5,6,7]
-            weights = [10,5,3,2,1,0.5,0.1,0.05]
+            weights = [20,5,3,2,1,0.5,0.1,0.05]
             assert len(values) == len(weights)
             value = random.choices(values, weights,k=1)
+     
             return value[0]
-        if self.stochastic_method == "deterministic" or self.stochastic_method == None or self.stochastic_method == "None":
+        if self.stochastic_method in ["deterministic", "None", None]:
             return 0
         logging.warn("No method for sample lead time delay selected. Return 0")
         return 0
@@ -146,11 +144,12 @@ class MRPSimulation():
 
         if self.stochastic_method == "discrete":
             values = [0,math.ceil(quantity*0.01),math.ceil(quantity*0.05),math.ceil(quantity*0.1),math.ceil(quantity*0.25),math.ceil(quantity*0.5),math.ceil(quantity)]
-            weights = [10,5,3,2,1,1,0.5]
+            weights = [20,5,3,2,1,0.2,0.1]
             assert len(values) == len(weights)
             value = random.choices(values, weights,k=1)
+
             return value[0]
-        if self.stochastic_method == "deterministic" or self.stochastic_method == None or self.stochastic_method == "None":
+        if self.stochastic_method in ["deterministic", "None", None]:
             return 0
         logging.warn("No method for sample quantity reduction selected. Return 0")
         return 0
@@ -160,28 +159,31 @@ class MRPSimulation():
         for period in range(1, g.sim_time + 2):
             
             # STEP 1: record storage sosts of last period
-            self.costs.extend(Material.calc_storage_costs_all())
+            self.costs.extend(self.calc_storage_costs_all())
             
             # STEP 2: Receive Releases from previous periods (called arrivals)  
-            arrivals_in_period = Release.get_arrivals(period)
+            arrivals_in_period = self.get_arrivals(period)
             for a in arrivals_in_period:
-                m = Material.get_material_by_id(a.material_id)
+                m = self.get_material_by_id(a.material_id)
                 _quantity = a.quantity - self.sample_quantity_reduction(a.quantity)
-                if m.quantity_in_stock > 0:
-                    m.quantity_in_stock += _quantity
-                else:
-                    m.quantity_in_stock = _quantity
+
+                m.quantity_in_stock += _quantity
+
                 a.quantity -= _quantity
+                if a.quantity > 0:
+                    # a.is_released = False
+                    a.backorder = True
+             
           
             # STEP 3: Check if MRP-Release is possible and follow different release-cases 
-            releases_in_period = Release.get_releases(period)
+            releases_in_period = self.get_releases(period)
             # STEP 3.1: Check possible quantity of release depending on bom-children
             for r in releases_in_period:
                 children = self.get_bom_childs_with_quantity(r.material_id, r.quantity)
                 if children is not None:
                     quantities_possible = []
                     for child in children:
-                        child_in_stock = Material.get_material_in_stock_by_id(child.id)
+                        child_in_stock = self.get_material_in_stock_by_id(child.id)
                         # Case 1: No child quantity in stock i 0 -> no production possible
                         if child_in_stock == None:
                             quantity_possible = 0
@@ -203,7 +205,7 @@ class MRPSimulation():
                     
                     # STEP 3.3: reduce quantity in stock of each child depending on release quantity
                     for child in children:
-                        child_in_stock = Material.get_material_in_stock_by_id(child.id)
+                        child_in_stock = self.get_material_in_stock_by_id(child.id)
                         if child_in_stock is not None:
                             child_in_stock.reduce_quantity_in_stock(r.quantity, is_parent_quant=True, quantity_per_unit = child.quantity_per_unit)
                 # STEP 3.4: set arrival time of release and mark as released 
@@ -211,14 +213,15 @@ class MRPSimulation():
                 r.is_released = True
             
             # STEP 4: Fulfill orders in Period
-            orders_in_period = Order.get_orders_in_period(period)         
+            orders_in_period = self.get_orders_in_period(period)         
             for o in orders_in_period:
+           
                 # STEP 4.1 Append Penalty costs of last period if is_backorder
-                m = Material.get_material_by_id(o.id)
+                m = self.get_material_by_id(o.id)
+
+         
                 if o.backorder:
                     self.costs.append(m.calc_penalty_costs(o.quantity))
-                
-                
                 # Set fullfilment quantity case specific
                 _fulfill_quant = 0
                 # Case Fulfillment = 0
@@ -231,8 +234,8 @@ class MRPSimulation():
                 elif o.quantity > m.quantity_in_stock:
                     _fulfill_quant = m.quantity_in_stock
                     if not o.backorder:
-                        o.backorder = True
                         self.sl.append(0)
+                        o.backorder = True
                     self.costs.append(m.calc_penalty_costs((o.quantity - _fulfill_quant)))
                     o.quantity -= _fulfill_quant
                     m.quantity_in_stock -= _fulfill_quant
@@ -242,9 +245,9 @@ class MRPSimulation():
                         self.sl.append(1)
                     _fulfill_quant = o.quantity
                     o.quantity = 0
-                
+                    m.quantity_in_stock -= _fulfill_quant
                 else:
                     logging.error("Error at Order Fulfillment. Let order pass.")
-                
-        assert len(self.costs) > 0 and len(self.sl) > 0
-        return {"costs" : int(sum(self.costs)), "service_level" : float(int((sum(self.sl)/len(self.sl))*100)/100)}
+   
+        assert len(self.sl) > 0
+        return {"costs" : int(sum(self.costs)), "service_level" : sum(self.sl)/len(self.sl)}
