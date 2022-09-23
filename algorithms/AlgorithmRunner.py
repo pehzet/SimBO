@@ -5,7 +5,7 @@ from torch.quasirandom import SobolEngine
 from pathlib import Path
 import pickle
 from dataclasses import dataclass
-
+from icecream import ic
 @dataclass
 class AlgorithmRunner:
 
@@ -89,9 +89,8 @@ class AlgorithmRunner:
         if self.lengthscales == None:
             return "na"
         if all==False:
-            lengthscale = self.lengthscales[index]
+            lengthscale = self.lengthscales[index] if self.lengthscales.ndim > 1 else self.lengthscales
         else:
             lengthscale = self.lengthscales
-
         return torch.reciprocal(lengthscale)
         

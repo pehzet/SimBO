@@ -13,7 +13,7 @@ from botorch.acquisition import UpperConfidenceBound
 
 from botorch.utils.transforms import unnormalize, normalize, standardize
 from algorithms.AlgorithmRunner import AlgorithmRunner
-
+from icecream import ic
 class GPEIRunner(AlgorithmRunner):
     def __init__(self, experiment_id,  replication, dim, batch_size, num_init, device, dtype):
         super().__init__(experiment_id, replication, dim, batch_size, num_init, device, dtype)

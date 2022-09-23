@@ -12,7 +12,8 @@ logger = logging.getLogger("main")
 
 # Surpress PyTorch warning
 warnings.filterwarnings("ignore", message="To copy construct from a tensor, it is") 
-warnings.filterwarnings("ignore", message="Could not import matplotlib.pyplot") 
+warnings.filterwarnings("ignore", message="Could not import matplotlib.pyplot")
+warnings.filterwarnings("ignore", message="torch.triangular_solve is deprecated") 
 
 
 import sys
@@ -112,6 +113,7 @@ class ExperimentRunner:
             return MRPRunner(use_case_config.get("bom_id"), use_case_config.get("num_solver_runs"), use_case_config.get("stochastic_method"))
      
     def save_experiment_json(self):
+        fi = self.use_case_runner.format_feature_importance(self.feature_importances)
         obj = {
             "experiment_id": self.experiment_id,
             "replication" : self.replication,
@@ -126,8 +128,8 @@ class ExperimentRunner:
             "eval_runtimes" : self.eval_runtimes_second,
             "best_candidat" : self.best_candidat,
             "candidates": self.candidates,
-            "final_feature_importances" : "na",
-            "feature_importances" : self.use_case_runner.format_feature_importance(self.feature_importances)
+            "final_feature_importances" : fi[-1],
+            "feature_importances" : fi
         }
         ffolder = "data/" + "experiment_" + str(self.experiment_id)
         fpath = ffolder +"/" + "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json"
@@ -148,8 +150,8 @@ class ExperimentRunner:
             ts = self.algorithm_runner.get_technical_specs()
             self.candidates.append({
                 "id" : self.current_candidat,
-                "sm" : ts.get("sm", "na"),
-                "acqf" : ts.get("acqf", "na"),
+                "sm" : ts.get("sm", "na") if self.current_candidat > self.algorithm_runner.num_init else "init",
+                "acqf" : ts.get("acqf", "na") if self.current_candidat > self.algorithm_runner.num_init else "init",
                 "tr" : self.algorithm_runner.get_tr(),
                 "x" : self.use_case_runner.format_x_for_candidate(x),
                 "y" : self.use_case_runner.format_y_for_candidate(y),
@@ -161,7 +163,6 @@ class ExperimentRunner:
     
 
     def get_best_candidate(self):
-        # TODO: make oneline?
         ys= list()
         for c in self.candidates: 
             ys.append([_y for _y in c.get("y").values()][0])
@@ -169,8 +170,6 @@ class ExperimentRunner:
         best = self.candidates[pd.DataFrame(ys).idxmin()[0]]
         logger.info(f"Best candidate found:\n {json.dumps(best, indent=2)}")
         return best
-
- 
         
     def run_optimization_loop(self):
         logger.info(f"Starting optimization run with evaluation budget of >{self.eval_budget}<")
@@ -181,7 +180,8 @@ class ExperimentRunner:
 
         x = self.algorithm_runner.suggest_initial()
         _end_trial = time.monotonic()
-        self.trial_runtimes_second.append((_end_trial- _start_trial))
+        #self.trial_runtimes_second.extend([(_end_trial- _start_trial) for _ in range(len(x))]) # ASKNICOLAS: soll len(trial_runtimes) = len(eval_runtimes) sein, damit es bei der Analyse nachher einfacher ist?
+        self.trial_runtimes_second.append(_end_trial- _start_trial)
         _y = list()
         for xx in x:
             _eval_start_seconds = time.monotonic()
@@ -190,12 +190,24 @@ class ExperimentRunner:
             self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
         self.append_candidate_to_candidates_list(x,_y)
         y, ysem = self.use_case_runner.transform_y_to_tensors_mean_sem(_y)
+
         self.algorithm_runner.complete(y, yvar = ysem)
         self.eval_budget -= len(x)
         self.current_trial +=1
+        retries = 0
         while self.eval_budget > 0:
             _start_trial = time.monotonic()
-            x = self.algorithm_runner.suggest()
+            if retries == 5:
+                logger.info("Max Retries reached. Going to Exit Optimization")
+                self.algorithm_runner.terminate_experiment()
+                self.save_experiment_json()
+                sys.exit()
+            try:
+                x = self.algorithm_runner.suggest()
+            except BaseException as e:
+                retries += 1
+                logger.info(f"Error at Suggest: {e}. Retry {retries} of 5")
+                continue
             assert len(x) > 0
             _y = list()
 

@@ -32,8 +32,10 @@ def formatDF(file):
 
 def get_configs_from_gsheet(from_main=False):
     load_dotenv()
+    if not os.path.exists("configs"):
+        os.makedirs("configs",exist_ok=True)
     sheet_id = os.getenv("SHEET_ID")
-    configs = read_gsheet(sheet_id, "configs")
+    configs = read_gsheet(sheet_id, "experiments")
     configs = configs.to_dict('records')
     for c in configs:
         obj = dict()

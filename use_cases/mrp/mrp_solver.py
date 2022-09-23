@@ -1,47 +1,45 @@
 import copy
+from platform import release
 import sys
 import traceback
 import logging
 import itertools
 logger = logging.getLogger("mrpsolver")
-
+from icecream import ic
 
 
 
 class Material():
-    instances = []
+
     def __init__(self,material_dict:dict, bom, initial_stock, safety_stock_param, safety_time_param, horizon) -> None:
         for k, v in material_dict.items():
             setattr(self, k, v)
             self.bom = bom
-
             self.greq = [0] * (horizon+1)
             self.released_orders = [0] * (horizon+1)
             self.initial_stock = initial_stock
             self.safety_stock = safety_stock_param
             self.safety_time = safety_time_param
             self.first_period_bom = False
-            Material.instances.append(self)
-    @classmethod
-    def get_material_by_id(cls, material_id):
-        return [m for m in cls.instances if m.id == material_id][0]
+            
+
     def release_order(self):
         releases = list()
-        for i,r in  enumerate(self.greq,1):
+        for i,r in  enumerate(self.greq):
             if r > 0:
                 releases.append({
-                "period" : i, 
+                "period" : i , 
                 "material" : self.id, 
                 "quantity" : float("{:.2f}".format(r)),
                 "lead_time": self.lead_time,
-                "period_due" :i+int(self.safety_time) + int(self.lead_time)
+                "period_due" : i + (int(self.safety_time) + int(self.lead_time))
                 })
         return releases
 
 class MRPSolver():
-    def __init__(self, bom, materials, orders, stock, parameters, horizon=100) -> None:
+    def __init__(self, bom, materials, orders, stock, parameters, horizon=200) -> None:
         self.horizon = horizon
-        self.bom = bom # 
+        self.bom = bom 
         self.parameters = parameters
         self.orders = orders
         self.parameters = parameters
@@ -57,17 +55,25 @@ class MRPSolver():
         initial_stock = _is[0] if len(_is) > 0 else 0
         return Material(m, bom, initial_stock, ss, st, self.horizon)
 
+    def get_material_by_id(self, material_id):
+        return [m for m in self.materials if m.id == material_id][0]
     def explode_bom(self, material:Material, quantity:float, period:int):
         if period < 0:
             logger.warning(f"Period Warning: Period {period} of Material {material.id} is less than 0, so place it at Period 0")
             period = 0
-        lead_time = material.lead_time + material.safety_time
-        material.greq[period] += quantity if material.first_period_bom == True else (quantity + material.safety_stock - material.initial_stock) 
+        else:
+            period = period - (material.lead_time + material.safety_time)
+
+        quantity = quantity if material.first_period_bom == True else (quantity + material.safety_stock - material.initial_stock)
+    
+        material.greq[period] += quantity
+   
         material.first_period_bom = True
         for b in material.bom:
-            child = Material.get_material_by_id(b.get("child_id"))
+            child = self.get_material_by_id(b.get("child_id"))
             child_quantity = quantity * b.get("quantity")
-            self.explode_bom(child, child_quantity, (period-lead_time))
+
+            self.explode_bom(child, child_quantity, period)
     
 
     def run(self):
@@ -82,11 +88,13 @@ class MRPSolver():
         '''
         # STEP 1: Explode BOM to get needed quantity for each material
         for o in self.orders:
-            material = Material.get_material_by_id(o.get("id"))
+            material = self.get_material_by_id(o.get("id"))
             self.explode_bom(material, o.get("quantity"), o.get("period"))
 
         releases_listed_by_material = [m.release_order() for m in self.materials]
         releases = list(itertools.chain.from_iterable(releases_listed_by_material))
+        # ic(sorted(releases,key=lambda x: x["period"]))
+
         return sorted(releases,key=lambda x: x["period"])
         
 
