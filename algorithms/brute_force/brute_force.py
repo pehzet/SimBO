@@ -18,15 +18,18 @@ class BruteForceRunner(AlgorithmRunner):
 
     def format_bounds_brute_force(self):
         return [(self.bounds[0][i], self.bounds[1][i])for i in range(len(self.bounds[0]))]
+
     def get_max_param_range(self):
-        return max([float(self.bounds[1][i] - self.bounds[0][i]) for i in range(len(self.bounds[0]))])
+        return max([float(self.bounds[1][i] - self.bounds[0][i] + 1) for i in range(len(self.bounds[0]))])
+
     def calc_num_permutations(self):
-        return int(np.prod([float(self.bounds[1][i] - self.bounds[0][i]) for i in range(len(self.bounds[0]))]))
+        return int(np.prod([float(self.bounds[1][i] - self.bounds[0][i] + 1) for i in range(len(self.bounds[0]))]))
+    
     def suggest(self):
         if self.calc_num_permutations() > 1e+6:
-            logger.error(f"Number of Permuations >{self.calc_num_permutations()}< is too large (max: 1e+6). going to exit.")
+            logger.error(f"Number of permuations >{self.calc_num_permutations()}< is too large (max: 1e+6). going to exit.")
             sys.exit()
-        logger.warning(f"Going to generate Permuations {self.calc_num_permutations()} of {len(self.bounds[0])} Parameters (max range: {self.get_max_param_range()}). There will be no log while generating. So dont get stressed :).")
+        logger.warning(f"Going to generate permuations {self.calc_num_permutations()} of {len(self.bounds[0])} parameters (max range: {self.get_max_param_range()}). There will be no log while generating. So dont get stressed :).")
         xx = product(*[list(range(b[0],b[1]+1)) for b in self.format_bounds_brute_force()])
         xx = tensor([x for x in xx])
         return xx
