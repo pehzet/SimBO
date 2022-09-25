@@ -41,7 +41,6 @@ class MRPRunner():
 
 
     def eval(self, x, ):
-
         x = self.transform_x(x)
         self.X.append(x)
         releases = self.run_solver(x)
@@ -51,18 +50,20 @@ class MRPRunner():
         y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_solver_runs:])
   
         return y
+
     def get_mean_and_sem_from_y(self, y_raw):
         data = list()
 
         for i in range(len(y_raw[0].keys())):
             values = [list(y.values())[i] for y in y_raw]
             mean = np.mean(values)
-            sem = (np.std(values, ddof=1)/np.sqrt(np.size(values)))
+            sem = (np.std(values, ddof=1) / np.sqrt(np.size(values)))
             data.append((mean,sem))
         return data
 
     def format_y_for_candidate(self, y):
         return {"costs" : y[0], "service_level" : y[1]}
+
     def format_x_for_candidate(self, x):
         return self.transform_x(x)
 

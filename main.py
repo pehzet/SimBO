@@ -97,17 +97,20 @@ class ExperimentRunner:
             batch_size = algorithm_config.get("batch_size")
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             return SaasboRunner(self.experiment_id, self.replication, dim, num_init=num_init, batch_size=batch_size, warmup_steps=warmup_steps,num_samples=num_samples, thinning=thinning, device=tkwargs["device"], dtype=tkwargs["dtype"])
+        
         if self.algorithm == "cmaes":
             batch_size = algorithm_config.get("batch_size")
             sigma0 = algorithm_config.get("sigma0", 0.5)
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0,num_init, device=tkwargs["device"], dtype=tkwargs["dtype"])
+        
         if self.algorithm == "sobol":
             return SobolRunner(self.experiment_id, self.replication,dim,batch_size=1, num_init=1, device=tkwargs["device"], dtype=tkwargs["dtype"])
         
         if self.algorithm == "brute_force" or self.algorithm == "bruteforce":
  
             return BruteForceRunner(self.experiment_id, self.replication, dim, batch_size=1, bounds = self.use_case_runner.bounds, num_init=1,device=tkwargs["device"], dtype=tkwargs["dtype"])
+    
     def get_use_case_runner(self, use_case_config : dict):
         if use_case_config.get("use_case").lower() == "mrp":
             return MRPRunner(use_case_config.get("bom_id"), use_case_config.get("num_solver_runs"), use_case_config.get("stochastic_method"))
@@ -141,7 +144,6 @@ class ExperimentRunner:
             json.dump(obj, fo)
         logger.info(f"Experiment data saved to >{fpath}<")
     
-
     def append_candidate_to_candidates_list(self, xx,yy):
 
         assert len(xx) == len(yy)
@@ -164,10 +166,11 @@ class ExperimentRunner:
     
 
     def get_best_candidate(self):
-        ys= list()
+        ys = list()
         for c in self.candidates: 
             ys.append([_y for _y in c.get("y").values()][0])
         # NOTE: is minimize
+        ic(ys)
         best = self.candidates[pd.DataFrame(ys).idxmin()[0]]
         logger.info(f"Best candidate found:\n {json.dumps(best, indent=2)}")
         return best
@@ -180,15 +183,23 @@ class ExperimentRunner:
         _start_trial = time.monotonic()
 
         x = self.algorithm_runner.suggest_initial()
+        logger.info(f"Got >{x.size()[0]}< initial points from algorithm.")
         _end_trial = time.monotonic()
         #self.trial_runtimes_second.extend([(_end_trial- _start_trial) for _ in range(len(x))]) # ASKNICOLAS: soll len(trial_runtimes) = len(eval_runtimes) sein, damit es bei der Analyse nachher einfacher ist?
         self.trial_runtimes_second.append(_end_trial- _start_trial)
         _y = list()
+
+        eval_counter = 0
         for xx in x:
             _eval_start_seconds = time.monotonic()
             _y.append(self.use_case_runner.eval(xx))
             _eval_end_seconds = time.monotonic()
             self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
+      
+            if eval_counter % 100 == 0:
+                logger.info(f"Number evaluations: {eval_counter}")
+            eval_counter += 1
+
         self.append_candidate_to_candidates_list(x,_y)
         y, ysem = self.use_case_runner.transform_y_to_tensors_mean_sem(_y)
 
@@ -217,7 +228,10 @@ class ExperimentRunner:
                 _y.append(self.use_case_runner.eval(xx))
                 _eval_end_seconds = time.monotonic()
                 self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
-
+            
+                if eval_counter % 100 == 0:
+                    logger.info(f"Number evaluations: {eval_counter}")
+                eval_counter += 1
 
             self.append_candidate_to_candidates_list(x,_y)
             y, ysem = self.use_case_runner.transform_y_to_tensors_mean_sem(_y)
@@ -239,6 +253,7 @@ class ExperimentRunner:
 
 def check_sysargs():
     if "load" in sys.argv:
+        logger.info("Argument 'load' found. Getting info from Google Spreadsheet.")
         get_configs_from_gsheet(from_main=True)
         if len(sys.argv) <= 2 :
             print("No experiment ID detected. Re-loaded only config files. Going to exit")

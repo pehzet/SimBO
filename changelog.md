@@ -2,17 +2,19 @@
 
 ## 23.09.2022
 - wording: configs -> experiment
-- fixed solver and Simulation
+- fixed solver and simulation
 - configs folder will be created if not exists
 - further minor changes
 
 ## 21.09.2022
 - wording changes at mrp_runner (inventory -> stock, demand -> orders)
 - Implemented new BOMs etc. in Gsheet
+
 ## 16.09.2022
 - Sobol Runner 
 - Brute Force Runner
 - MRP Solver OOP
+
 ## 15.09.2022
 - MRP Simulation OOP
 
