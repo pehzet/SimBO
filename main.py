@@ -128,12 +128,12 @@ class ExperimentRunner:
             "total_duration_seconds": self.total_duration_seconds,
             "experiment_start" : self.experiment_start_dts,
             "experiment_end" : self.experiment_end_dts,
-            "trial_runtimes" : self.trial_runtimes_second,
-            "eval_runtimes" : self.eval_runtimes_second,
-            "best_candidat" : self.best_candidat,
-            "candidates": self.candidates,
+            "trial_runtimes" : self.trial_runtimes_second if self.algorithm != "brute_force" else "na",
+            "eval_runtimes" : self.eval_runtimes_second if self.algorithm != "brute_force" else "na",
+            "best_candidate" : self.best_candidat,
+            "candidates": self.candidates if self.algorithm != "brute_force" else "na",
             "final_feature_importances" : fi[-1] if fi != "na" else "na",
-            "feature_importances" : fi
+            "feature_importances" : fi if self.algorithm != "brute_force" else "na"
         }
         ffolder = "data/" + "experiment_" + str(self.experiment_id)
         fpath = ffolder +"/" + "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json"
