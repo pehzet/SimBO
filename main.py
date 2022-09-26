@@ -170,7 +170,6 @@ class ExperimentRunner:
         for c in self.candidates: 
             ys.append([_y for _y in c.get("y").values()][0])
         # NOTE: is minimize
-        ic(ys)
         best = self.candidates[pd.DataFrame(ys).idxmin()[0]]
         logger.info(f"Best candidate found:\n {json.dumps(best, indent=2)}")
         return best
