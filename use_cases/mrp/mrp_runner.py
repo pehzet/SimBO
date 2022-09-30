@@ -40,6 +40,7 @@ class MRPRunner():
         self.Y_raw = list()
 
 
+
     def eval(self, x, ):
         x = self.transform_x(x)
         self.X.append(x)
@@ -71,11 +72,11 @@ class MRPRunner():
     def transform_x(self, x):
         assert self.param_meta is not None
         assert self.bounds is not None
-      
+        
         x = unnormalize(x, bounds=self.bounds)
         x_mrp = []
         for i,pm in enumerate(self.param_meta):
-    
+
             x_mrp.append(
                 {   
                 "id" : pm.get("name").split("_",1)[0],

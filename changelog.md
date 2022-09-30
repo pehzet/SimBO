@@ -1,5 +1,9 @@
 # Changelog
 
+## 30.09.2022
+- Brute Force with logs
+- log every new best point
+
 ## 28.09.2022
 - MRP: reduced propability of delay and reduction (stochastic)
 - MRP: bug fix at releases. Now it works as it should :)

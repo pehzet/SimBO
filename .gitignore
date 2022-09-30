@@ -21,3 +21,7 @@ use_cases/mrp/mrp_sim_classes.py
 use_cases/mrp/mrp_solver_OOP.py
 use_cases/mrp/mrp_solver_backup.py
 use_cases/mrp/mrp_sim_eval.py
+sems_base_group.csv
+sems_group.csv
+use_cases/mrp/sems.csv
+use_cases/mrp/sems_base.csv
