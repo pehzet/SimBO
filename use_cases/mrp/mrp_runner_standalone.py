@@ -9,10 +9,12 @@ logger = logging.getLogger("mrp")
 
 # from main import run_solver
 from pandas import DataFrame
-from utils.gsheet_utils import read_gsheet, formatDF
+import sys
+import pandas as pd
+import urllib
 
-from use_cases.mrp.mrp_solver import MRPSolver
-from use_cases.mrp.mrp_sim import MRPSimulation, init_mrp_sim
+from mrp_solver import MRPSolver
+from mrp_sim_eval import MRPSimulation, init_mrp_sim
 import os
 import torch
 import numpy as np
@@ -21,9 +23,10 @@ from dotenv import load_dotenv
 load_dotenv()
 from botorch.utils.transforms import unnormalize, normalize
 from icecream import ic
+import random
 class MRPRunner():
 
-    def __init__(self, bom_id, num_solver_runs=5, stochastic_method=True):
+    def __init__(self, bom_id, num_solver_runs=5, stochastic_method="discrete"):
         self.bom_id = bom_id
         self.num_solver_runs = num_solver_runs
         self.stochastic_method = stochastic_method
@@ -38,14 +41,27 @@ class MRPRunner():
         init_mrp_sim(self.bom, self.materials, self.orders)
         self.X = list()
         self.Y_raw = list()
+    def run_solver(self, params):
+        '''
+        Expects: {material_param_name : value} (one dict, no list!)
+        Returns: Releases, bom, materials. orders (all needed for sim)
+        '''
+        try:
+            releases = MRPSolver(self.bom, self.materials, self.orders, self.stock, params,horizon=200).run()
+            return releases
+        except Exception as e:
+            logger.error(f"Error at MRP Run: {traceback.format_exc()}")
+            return None
 
+    def eval(self, x, base=0):
+        #x = self.transform_x(x)
 
-    def eval(self, x, ):
-        x = self.transform_x(x)
         self.X.append(x)
         releases = self.run_solver(x)
         for _ in range(self.num_solver_runs):
             result = MRPSimulation(releases, stochastic_method = self.stochastic_method).run_simulation()
+
+            result["costs"] += base
             self.Y_raw.append(result)
         y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_solver_runs:])
   
@@ -253,7 +269,7 @@ class MRPRunner():
             obj = {
                 "name" : id + "_" + "safety_stock",
                 "lower_bound" : 0,
-                "upper_bound" : 100,
+                "upper_bound" : 250,
                 "type" : "int",
                 "fixed" : False
             }
@@ -284,18 +300,69 @@ class MRPRunner():
             fi_per_trial.append(fi_dict)
         return fi_per_trial
 
-    def run_solver(self, params):
-        '''
-        Expects: {material_param_name : value} (one dict, no list!)
-        Returns: Releases, bom, materials. orders (all needed for sim)
-        '''
-        try:
-            releases = MRPSolver(self.bom, self.materials, self.orders, self.stock, params,horizon=200).run()
-            return releases
-        except Exception as e:
-            logger.error(f"Error at MRP Run: {traceback.format_exc()}")
-            return None
 
 
 
+
+
+
+def read_gsheet(sheet_id, sheet_name):
+    try:
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+        file =pd.read_csv(url)
+    except urllib.error.HTTPError as err:
+        print(str(err))
+        print("Invalid sheet_id or sheet_name. Make sure that Sheet is published")
+        sys.exit()
+
+    return file
+
+
+def formatDF(file):
+    f = file.to_dict('records')
+    for line in f:
+        for k, v in line.items():
+            if k == "id" or k == "parent_id" or k == "child_id" or k=='id':
+                line[k] = str(v)
+    return f
+
+
+
+import csv
+if __name__ == '__main__':
+    bom_id = 10
+    # x = torch.tensor([random.random() for _ in range(10)])
+    #x=torch.tensor([0.4892, 0.9198, 0.8017, 0.6702, 0.9139, 0.4037, 0.2267, 0.3581, 0.4140, 0.5538])
+    x = [{'id': '1002', 'name': 'safety_stock', 'value': 50},
+        {'id': '1002', 'name': 'safety_time', 'value': 1},
+        {'id': '2001', 'name': 'safety_stock', 'value': 100},
+        {'id': '2001', 'name': 'safety_time', 'value': 2},
+        {'id': '2002', 'name': 'safety_stock', 'value': 100},
+        {'id': '2002', 'name': 'safety_time', 'value': 2},
+        {'id': '3001', 'name': 'safety_stock', 'value': 150},
+        {'id': '3001', 'name': 'safety_time', 'value': 2},
+        {'id': '3002', 'name': 'safety_stock', 'value': 150},
+        {'id': '3002', 'name': 'safety_time', 'value': 2}]
+    sm = "discrete"
+    # for i in range(1,31):
+    #     nsr = i
+    #     for j in range(10):
+    #         runner = MRPRunner(bom_id=bom_id, num_solver_runs=nsr, )
+    #         MRPRunner.stochastic_method = sm
+    #         x = torch.tensor([random.random() for _ in range(10)])
+    #         y = runner.eval(x, base=5201*85)
+    #         #y_base = 5201*85
+            
+    #         sem_perc = y[0][1] /y[0][0]
+    #         # ic(sem_perc)
+    #         with open("sems_base.csv","a",newline ='') as f:
+    #             writer = csv.writer(f)
+    #             writer.writerow([bom_id, nsr, sem_perc, y[0][0], y[0][1], ])
+
+
+    runner = MRPRunner(bom_id=bom_id, num_solver_runs=1, )
+    MRPRunner.stochastic_method = sm
+    #x = torch.tensor([random.random() for _ in range(10)])
+    y = runner.eval(x, base=0)
+    #y_base = 5201*85
 

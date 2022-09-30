@@ -1,5 +1,10 @@
 # Changelog
 
+## 28.09.2022
+- MRP: reduced propability of delay and reduction (stochastic)
+- MRP: bug fix at releases. Now it works as it should :)
+- MRP: added function to get data of every class instance (csv) 
+
 ## 23.09.2022
 - wording: configs -> experiment
 - fixed solver and simulation

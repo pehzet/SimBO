@@ -4,7 +4,9 @@ import copy
 import logging
 import sys
 from icecream import ic
-
+import csv
+import json
+import datetime
 logger = logging.getLogger("mrpsim")
 
 class g:
@@ -24,12 +26,21 @@ class Material():
         for k, v in material_dict.items():
             setattr(self, k, v)
         self.quantity_in_stock = 0
+        self.penalty_costs_list = []
+        self.storage_costs_list = []
   
 
     def calc_storage_costs(self):
-        return round(self.quantity_in_stock * self.storage_cost_rate,2)
+        sc = round(self.quantity_in_stock * self.storage_cost_rate,2)
+        self.storage_costs_list.append(sc)
+        return sc
     def calc_penalty_costs(self, quantity):
-        return round(self.penalty_cost_rate * quantity)
+        pc = round(self.penalty_cost_rate * quantity)
+        self.penalty_costs_list.append(pc)
+        return pc
+    # def calc_penalty_costs_exponential(self, order, period):
+    #     delay = order.due_date - period
+    #     pc = round(self.penalty_cost_rate**delay * order.quantity)
 
     def reduce_quantity_in_stock(self, quantity, is_parent_quant=False, quantity_per_unit = 0):
         if is_parent_quant:
@@ -54,14 +65,13 @@ class Order():
 
 
 class Release():
-   
     def __init__(self, release_dict) -> None:
         for k, v in release_dict.items():
             setattr(self, k, v)
         self.arrival = -1
         self.backorder = False
         self.material_id = self.material
-        self.is_released = False
+
      
     
 
@@ -73,15 +83,16 @@ class Child():
 class MRPSimulation():
     def __init__(self, releases, stochastic_method="discrete") -> None:
         self.releases = [Release(r) for r in copy.deepcopy(releases)]
+
         self.costs = []
-        self.stock = []
         self.sl = []
-        self.fulfilled_orders = []
+     
         self.materials = [Material(m) for m in copy.deepcopy(g.materials)]
         self.bom = copy.deepcopy(g.bom) # no deepcopy required?
         self.orders = [Order(o) for o in copy.deepcopy(g.orders)]
         self.stochastic_method = stochastic_method
         self.check()
+
     def get_material_by_id(self, material_id):
         return [m for m in self.materials if m.id == material_id][0]
     def get_material_in_stock_by_id(self, material_id):
@@ -96,16 +107,19 @@ class MRPSimulation():
             return False
         return True
     def calc_storage_costs_all(self):
+        for m in self.materials:
+            sc = round(m.quantity_in_stock * m.storage_cost_rate,2)
+            m.storage_costs_list.append(sc)
         return [m.quantity_in_stock * m.storage_cost_rate for m in self.materials if m.quantity_in_stock > 0]
 
     def get_orders_in_period(self, period):
-        return [o for o in self.orders if (o.period == period or o.backorder == True) and o.quantity > 0]
+        return [o for o in self.orders if ((o.period == period or o.backorder == True) and o.quantity > 0)]
 
     def get_arrivals(self, period):
-        return [r for r in self.releases if r.arrival == period or (r.backorder == True and r.quantity >= 0)]
-
+        # return [r for r in self.releases if r.arrival == period or (r.backorder == True and r.quantity > 0)]
+        return [r for r in self.releases if r.arrival == period and r.quantity > 0]
     def get_releases(self, period):
-        return [r for r in self.releases if (r.period == period or r.backorder == True) and r.is_released == False]
+        return [r for r in self.releases if (r.period == period) or (r.backorder == True and r.quantity > 0)]
 
     def check(self):
         """
@@ -129,11 +143,11 @@ class MRPSimulation():
     
     def sample_lead_time_delay(self):
         if self.stochastic_method == "discrete":
-            values = [0,1,2,3,4,5,6,7]
-            weights = [20,5,3,2,1,0.5,0.1,0.05]
+            values = [0,1,2,3]
+            weights = [90,5,3,2]
             assert len(values) == len(weights)
             value = random.choices(values, weights,k=1)
-     
+
             return value[0]
         if self.stochastic_method in ["deterministic", "None", None]:
             return 0
@@ -141,10 +155,9 @@ class MRPSimulation():
         return 0
    
     def sample_quantity_reduction(self, quantity):
-
         if self.stochastic_method == "discrete":
-            values = [0,math.ceil(quantity*0.01),math.ceil(quantity*0.05),math.ceil(quantity*0.1),math.ceil(quantity*0.25),math.ceil(quantity*0.5),math.ceil(quantity)]
-            weights = [20,5,3,2,1,0.2,0.1]
+            values = [0,math.ceil(quantity*0.01),math.ceil(quantity*0.02),math.ceil(quantity*0.05)]
+            weights = [40,5,3,2]
             assert len(values) == len(weights)
             value = random.choices(values, weights,k=1)
 
@@ -155,9 +168,10 @@ class MRPSimulation():
         return 0
 
     def run_simulation(self):
+
         # range starts with 1 and ends with sim_time + 1 (from start) + 1(to calc cost of previous period in case of backorder) 
-        for period in range(1, g.sim_time + 2):
-            
+        for period in range(1, g.sim_time + 20):
+
             # STEP 1: record storage sosts of last period
             self.costs.extend(self.calc_storage_costs_all())
             
@@ -171,14 +185,17 @@ class MRPSimulation():
 
                 a.quantity -= _quantity
                 if a.quantity > 0:
-                    # a.is_released = False
-                    a.backorder = True
-             
-          
+                    a.arrival += 1
+                else:
+                    a.fulfillment_date = period
+                    
+
+
             # STEP 3: Check if MRP-Release is possible and follow different release-cases 
             releases_in_period = self.get_releases(period)
             # STEP 3.1: Check possible quantity of release depending on bom-children
             for r in releases_in_period:
+
                 children = self.get_bom_childs_with_quantity(r.material_id, r.quantity)
                 if children is not None:
                     quantities_possible = []
@@ -197,10 +214,12 @@ class MRPSimulation():
 
                     # STEP 3.2 : Create seperate Backorder if quantity in stock of one child is not sufficient
                     if any(qp < r.quantity for qp in quantities_possible):
+
                         _release = Release(r.__dict__) 
                         _release.backorder = True
                         _release.quantity -= min(quantities_possible)
                         _release.arrival = period + _release.lead_time + self.sample_lead_time_delay()
+                        self.releases.append(_release)
                         r.quantity = min(quantities_possible)
                     
                     # STEP 3.3: reduce quantity in stock of each child depending on release quantity
@@ -210,12 +229,13 @@ class MRPSimulation():
                             child_in_stock.reduce_quantity_in_stock(r.quantity, is_parent_quant=True, quantity_per_unit = child.quantity_per_unit)
                 # STEP 3.4: set arrival time of release and mark as released 
                 r.arrival = r.period + r.lead_time + self.sample_lead_time_delay()
-                r.is_released = True
+
             
             # STEP 4: Fulfill orders in Period
             orders_in_period = self.get_orders_in_period(period)         
             for o in orders_in_period:
-           
+                if not hasattr(o, "first_apperance"):
+                    o.first_apperance = period
                 # STEP 4.1 Append Penalty costs of last period if is_backorder
                 m = self.get_material_by_id(o.id)
 
@@ -245,9 +265,56 @@ class MRPSimulation():
                         self.sl.append(1)
                     _fulfill_quant = o.quantity
                     o.quantity = 0
+                    o.fulfillment_date = period
                     m.quantity_in_stock -= _fulfill_quant
                 else:
+
                     logging.error("Error at Order Fulfillment. Let order pass.")
-   
+
+
         assert len(self.sl) > 0
         return {"costs" : int(sum(self.costs)), "service_level" : sum(self.sl)/len(self.sl)}
+
+
+    # FUNCTION FOR DEBUG
+    def save_object_instances_csv(self):
+        # orders
+        file_präfix = "data/" + str(datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S"))
+        with open(file_präfix +"_orders.csv", 'w',encoding='utf-8',newline='') as f:
+            w = csv.DictWriter(f, self.orders[0].__dict__.keys())
+            w.writeheader()
+            for o in self.orders:
+
+                if hasattr(o, "fulfillment_date"):
+                    o.delay = max((o.fulfillment_date  - o.period),0)
+
+            orders = sorted(self.orders, key=lambda m: m.period)
+            for o in orders:
+                
+                w.writerow(o.__dict__)
+        with open(file_präfix +"_releases.csv", 'w',encoding='utf-8',newline='') as f:
+            header = list(self.releases[0].__dict__.keys()) + ["delay"]
+            w = csv.DictWriter(f, header)
+            w.writeheader()
+            releases = sorted(self.releases, key=lambda m: m.period)
+            for r in releases:
+                r.delay = max(r.arrival - r.period_due,0)
+                w.writerow(r.__dict__)
+
+            num_delays = [r.delay for r in releases if r.delay > 0]
+
+        with open(file_präfix +"_materials.csv", 'w',encoding='utf-8',newline='') as f:
+            header = list(self.materials[0].__dict__.keys()) + ["storage_costs","penalty_costs"]
+            w = csv.DictWriter(f, header)
+            w.writeheader()
+            
+            for m in self.materials:
+                m.storage_costs = sum(m.storage_costs_list)
+                m.penalty_costs = sum(m.penalty_costs_list)
+                del m.penalty_costs_list
+                del m.storage_costs_list
+                
+                w.writerow(m.__dict__)
+
+
+
