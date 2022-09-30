@@ -174,6 +174,18 @@ class ExperimentRunner:
                 writer = csv.DictWriter(f,fieldnames=header)
                 writer.writerows(data)
 
+        y_cost = [y[0][0] for y in y[(max(((self.bf_batch-1)*100-1),0)):self.bf_batch*100-1]]
+
+        best_in_trial = min(y_cost).item() 
+
+        if self.algorithm_runner.Y_current_best == None:
+            self.algorithm_runner.Y_current_best = best_in_trial
+            logger.info(f"New best Y found: {self.algorithm_runner.Y_current_best}")
+        else:
+            # is_better = self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial
+            if best_in_trial < self.algorithm_runner.Y_current_best if self.minimize else best_in_trial > self.algorithm_runner.Y_current_best :
+                self.algorithm_runner.Y_current_best = best_in_trial
+                logger.info(f"New best Y found: {self.algorithm_runner.Y_current_best}")
 
     def save_experiment_json(self):
         fi = self.use_case_runner.format_feature_importance(self.feature_importances)

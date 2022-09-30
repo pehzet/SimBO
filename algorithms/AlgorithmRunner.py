@@ -51,6 +51,7 @@ class AlgorithmRunner:
         best_in_trial = min(self.Y_next).item() if self.minimize else max(self.Y_next).item()
         if self.Y_current_best == None:
             self.Y_current_best = best_in_trial
+            logger.info(f"New best Y found: {self.Y_current_best}")
         else:
             # is_better = self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial
             if self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial:
