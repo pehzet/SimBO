@@ -23,6 +23,7 @@ class AlgorithmRunner:
         self.Yvar = None
         self.Yvar_next = None
         self.Y_pred = None
+        self.Y_current_best = None
         self.acq_values = None
         self.minimize = True
 
@@ -46,6 +47,15 @@ class AlgorithmRunner:
 
     def complete(self, y, yvar = None):
         self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
+
+        best_in_trial = min(self.Y_next).item() if self.minimize else max(self.Y_next).item()
+        if self.Y_current_best == None:
+            self.Y_current_best = best_in_trial
+        else:
+            # is_better = self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial
+            if self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial:
+                self.Y_current_best = best_in_trial
+                logger.info(f"New best Y found: {self.Y_current_best*-1 if self.minimize else self.Y_current_best}")
         if yvar is not None:
             self.Yvar_next = torch.tensor(yvar, dtype=self.dtype, device=self.device).unsqueeze(-1)
             self.Yvar = torch.cat((self.Yvar, self.Yvar_next),  dim=0) if self.Yvar is not None else self.Yvar_next
@@ -78,6 +88,9 @@ class AlgorithmRunner:
         NOTE: y-pred not implemented. Returning None
         """
         return None
+    
+
+
     def get_acq_value(self, index=-1):
         if self.acq_values == None:
             return "na"

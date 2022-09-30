@@ -6,11 +6,12 @@ logger = logging.getLogger("brute_force")
 import numpy as np
 from icecream import ic
 import sys
-
+from botorch.utils.transforms import unnormalize, normalize
 class BruteForceRunner(AlgorithmRunner):
     def __init__(self, experiment_id, replication, dim, batch_size, bounds, num_init=-1, device="cpu", dtype=...) -> None:
         super().__init__(experiment_id, replication, dim, batch_size, num_init, device, dtype)
         self.bounds = bounds
+
         logger.info("Note: Brute Force is no optimization algorithm. Its just a evaluation of all permuations of the search space.")
         #self.suggest_initial = types.MethodType(self._suggest_initial, self)
     def suggest_initial(self):
@@ -32,4 +33,5 @@ class BruteForceRunner(AlgorithmRunner):
         logger.warning(f"Going to generate permuations {self.calc_num_permutations()} of {len(self.bounds[0])} parameters (max range: {self.get_max_param_range()}). There will be no log while generating. So dont get stressed :).")
         xx = product(*[list(range(b[0],b[1]+1)) for b in self.format_bounds_brute_force()])
         xx = tensor([x for x in xx])
+        xx = normalize(xx,self.bounds)
         return xx

@@ -1,8 +1,11 @@
 # Main File for Cluster Experiments
 
 # Logging and warnings
+from genericpath import isfile
 import warnings
 import logging
+
+from sqlalchemy import false
 logging.basicConfig(
     level = logging.INFO,
     format = '%(asctime)s: %(levelname)s: %(name)s: %(message)s'
@@ -18,6 +21,7 @@ warnings.filterwarnings("ignore", message="torch.triangular_solve is deprecated"
 
 import sys
 import json
+import csv
 import os
 import pandas as pd
 from pathlib import Path
@@ -55,6 +59,8 @@ class ExperimentRunner:
         self.candidates = list()
         self.best_candidat = None
 
+        self.first_log_done = False
+        
         self.current_candidat = 0
         self.current_trial = 0
         self.current_x = None
@@ -62,6 +68,7 @@ class ExperimentRunner:
         self.config = self.get_experiment_config()
         self.use_case_runner = self.get_use_case_runner(self.config.get("use_case_config"))
         self.algorithm_runner = self.get_algorithm_runner(self.config.get("algorithm_config"), len(self.use_case_runner.param_meta))
+        self.algorithm_runner.minimize = self.minimize
 
 
     def get_experiment_config(self):
@@ -107,14 +114,67 @@ class ExperimentRunner:
         if self.algorithm == "sobol":
             return SobolRunner(self.experiment_id, self.replication,dim,batch_size=1, num_init=1, device=tkwargs["device"], dtype=tkwargs["dtype"])
         
-        if self.algorithm == "brute_force" or self.algorithm == "bruteforce":
- 
+        if self.algorithm in ["brute_force", "bruteforce"]:
+
             return BruteForceRunner(self.experiment_id, self.replication, dim, batch_size=1, bounds = self.use_case_runner.bounds, num_init=1,device=tkwargs["device"], dtype=tkwargs["dtype"])
     
     def get_use_case_runner(self, use_case_config : dict):
         if use_case_config.get("use_case").lower() == "mrp":
             return MRPRunner(use_case_config.get("bom_id"), use_case_config.get("num_solver_runs"), use_case_config.get("stochastic_method"))
      
+
+    def log_x_and_y(self,x,y):
+
+        ffolder = "data/" + "experiment_" + str(self.experiment_id)
+        fpath = ffolder +"/" + "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + "_brute_force_log" + ".csv"
+        if not self.first_log_done:
+
+            self.first_log_done = True
+            self.bf_batch = 1
+            data = list()
+
+            xx = [self.use_case_runner.transform_x(_x) for _x in x[:99]]
+            for i, _x in enumerate(xx):
+    
+                date = {}
+                for xl in _x:
+                    date[xl["id"] + "_" + xl["name"]] = xl["value"]
+          
+                date["cost_mean"]= y[i][0][0]
+                date["cost_sem"]= y[i][0][1]
+                date["sl_mean"]= y[i][1][0]
+                date["sl_sem"]= y[i][1][1]
+                data.append(date)
+            header = list(data[0].keys())
+       
+            if not os.path.exists(ffolder):
+                Path(ffolder).mkdir(parents=True, exist_ok=True)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+            with open(fpath, "x",newline='',encoding="utf-8") as f:
+                writer = csv.DictWriter(f,header)
+                writer.writeheader() 
+                writer.writerows(data)
+            
+        else:
+            self.bf_batch +=1
+            data = list()
+            xx = [self.use_case_runner.transform_x(_x) for _x in x[(max(((self.bf_batch-1)*100-1),0)):self.bf_batch*100-1]]
+            for i, _x in enumerate(xx):
+                date = {}
+                for xl in _x:
+                    date[xl["id"] + "_" + xl["name"]] = xl["value"]
+                date["cost_mean"]= y[i][0][0]
+                date["cost_sem"]= y[i][0][1]
+                date["sl_mean"]= y[i][1][0]
+                date["sl_sem"]= y[i][1][1]
+                data.append(date)
+                header = list(data[0].keys())
+            with open(fpath, "a",newline='',encoding="utf-8") as f:
+                writer = csv.DictWriter(f,fieldnames=header)
+                writer.writerows(data)
+
+
     def save_experiment_json(self):
         fi = self.use_case_runner.format_feature_importance(self.feature_importances)
 
@@ -169,8 +229,7 @@ class ExperimentRunner:
         ys = list()
         for c in self.candidates: 
             ys.append([_y for _y in c.get("y").values()][0])
-        # NOTE: is minimize
-        best = self.candidates[pd.DataFrame(ys).idxmin()[0]]
+        best = self.candidates[pd.DataFrame(ys).idxmin()[0]] if self.minimize else self.candidates[pd.DataFrame(ys).idxmax()[0]]
         logger.info(f"Best candidate found:\n {json.dumps(best, indent=2)}")
         return best
         
@@ -190,14 +249,20 @@ class ExperimentRunner:
 
         eval_counter = 0
         for xx in x:
+            
+            eval_counter += 1
             _eval_start_seconds = time.monotonic()
             _y.append(self.use_case_runner.eval(xx))
             _eval_end_seconds = time.monotonic()
             self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
-      
+            
             if eval_counter % 100 == 0:
+  
                 logger.info(f"Number evaluations: {eval_counter}")
-            eval_counter += 1
+                if self.algorithm == "brute_force":
+                    self.log_x_and_y(x,_y)
+
+            
 
         self.append_candidate_to_candidates_list(x,_y)
         y, ysem = self.use_case_runner.transform_y_to_tensors_mean_sem(_y)
@@ -206,6 +271,8 @@ class ExperimentRunner:
         self.eval_budget -= len(x)
         self.current_trial +=1
         retries = 0
+        logger.info("Initial Trial completed")
+  
         while self.eval_budget > 0:
             _start_trial = time.monotonic()
             if retries == 5:
@@ -237,9 +304,9 @@ class ExperimentRunner:
             self.algorithm_runner.complete(y, yvar = ysem)
             _end_trial = time.monotonic()
             self.trial_runtimes_second.append((_end_trial- _start_trial))
-
             self.eval_budget -= len(x)
             self.current_trial +=1
+            logger.info(f"Trial {self.current_trial} with {len(x)} Arms completed completed")
         _end = time.monotonic()
         self.experiment_end_dts = datetime.now().isoformat()
         self.total_duration_seconds =  _end -_start
