@@ -44,11 +44,8 @@ class AlgorithmRunner:
         logger.debug(f"Initial SOBOL candidates: {self.X_next}")
         return self.X_next 
     
-
-    def complete(self, y, yvar = None):
-        self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
-
-        best_in_trial = min(self.Y_next).item() if self.minimize else max(self.Y_next).item()
+    def identity_best_in_trial(self):
+        best_in_trial = max(self.Y_next).item() # TODO: Think about general way to handle min and max
         if self.Y_current_best == None:
             self.Y_current_best = best_in_trial
             logger.info(f"New best Y found: {self.Y_current_best}")
@@ -57,6 +54,13 @@ class AlgorithmRunner:
             if self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial:
                 self.Y_current_best = best_in_trial
                 logger.info(f"New best Y found: {self.Y_current_best*-1 if self.minimize else self.Y_current_best}")
+
+    def complete(self, y, yvar = None):
+        self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
+        
+        self.identity_best_in_trial()
+        
+
         if yvar is not None:
             self.Yvar_next = torch.tensor(yvar, dtype=self.dtype, device=self.device).unsqueeze(-1)
             self.Yvar = torch.cat((self.Yvar, self.Yvar_next),  dim=0) if self.Yvar is not None else self.Yvar_next

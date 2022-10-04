@@ -5,7 +5,7 @@ import numpy as np
 from algorithms.AlgorithmRunner import AlgorithmRunner
 import logging
 logger = logging.getLogger("cmaes")
-
+from icecream import ic
 
 class CMAESRunner(AlgorithmRunner):
     def __init__(self, experiment_id,  replication, dim, batch_size, bounds, sigma0, num_init=-1, device="cpu", dtype=torch.double) -> None:
@@ -30,23 +30,24 @@ class CMAESRunner(AlgorithmRunner):
             l = torch.tensor(np.array(l))
         return l
     def suggest_initial(self):
-        logger.info(f"Suggest Initial skipped, because cmaes doesnt require random initialization. Suggest {self.num_init} non-random candidates instead")
-        xx = self.es.ask(number=self.num_init)
-        self.X_next = xx
-        xx = self.list_to_tensor(xx)
-        return xx
+        logger.info(f"Suggest Initial skipped, because cmaes doesnt require random initialization. Suggest {self.batch_size} non-random candidates instead")
+        return self.suggest()
 
     def suggest(self):
         xx = self.es.ask()
         self.X_next = xx
         xx = self.list_to_tensor(xx)
-        
         return xx
 
     def complete(self,yy, yvar=None):
+
+        
         self.X.append(self.X_next)
         #self.es.logger.add()
-
+        self.Y_next = yy
+        # cma-es ist default minimize (BO is default maximize)
+        yy = yy*-1 if self.minimize else yy
+        self.identity_best_in_trial()
         #NOTE: yvar not needed atm
         yy = self.tensor_to_list(yy)
         self.Y.append(yy)

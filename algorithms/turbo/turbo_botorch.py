@@ -7,6 +7,7 @@ import math
 from dataclasses import dataclass
 
 import torch
+from torch import tensor
 from botorch.acquisition import qExpectedImprovement
 from botorch.fit import fit_gpytorch_model
 from botorch.generation import MaxPosteriorSampling
@@ -70,12 +71,13 @@ class TurboState():
 @dataclass
 class TurboRunner(AlgorithmRunner):
 
-    def __init__(self, experiment_id, replication, dim, batch_size, num_init, device, dtype):
+    def __init__(self, experiment_id, replication, dim, batch_size, num_init, device, dtype, sm="fngp"):
         super().__init__(experiment_id,  replication, dim, batch_size, num_init, device, dtype)
         self.state = TurboState(dim=self.dim, batch_size=self.batch_size)
         logger.info(f"Running on device: {self.device} and dtype: {self.dtype}")
         
         self.sm = "fngp" # TODO: make configuable later
+        self.sm = sm 
         self.acqf = "ts" # TODO: make configuable later
         self.X_all = None
     
@@ -99,20 +101,27 @@ class TurboRunner(AlgorithmRunner):
             self.restart_state()
             self.X_next = self.suggest_initial()
             return self.X_next
+        # Standarize Y and normalize Noise as said here: https://botorch.org/api/models.html#botorch.models.gp_regression.SingleTaskGP
+        # This performs better. Testet fngp and hsgp / 2022-10-04 PZ
         train_Y = standardize(self.Y) #standardize because botorch says it works better
-        train_Yvar = standardize(self.Yvar)
-        train_Yvar = torch.abs(train_Yvar) # variance must not be negative
+        train_Yvar = normalize(self.Yvar,bounds=tensor((min(self.Y).item(), max(self.Y).item())))
         #likelihood = GaussianLikelihood(noise_constraint=Interval(1e-8, 1e-3))
         covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
         MaternKernel(nu=2.5, ard_num_dims=self.dim, lengthscale_constraint=Interval(0.005, 4.0))
         )
         # NOTE: Check if standardize Y and Yvar perform better. stdardize = (Y-Y.mean)/Y.std
 
-        model = FixedNoiseGP(self.X, train_Y, covar_module=covar_module,  train_Yvar=train_Yvar)
 
-        # NOTE: Heteroskedastic models noise as second GP to predict noise. Not needed atm.
-        # model = HeteroskedasticSingleTaskGP(self.X, train_Y, train_Yvar=train_Yvar)
-        # model = HeteroskedasticSingleTaskGP(self.X, self.Y, train_Yvar=self.Yvar)
+        if self.sm in ["hsgp", "hsstgp"]:
+            # NOTE: Its not possible to pass a covar module to the HSGP. So maybe we should use fixed Noise here to keep the lengthscale priors.
+            # I will take a look at it at the time /PZM 2022-10-04
+            # https://github.com/pytorch/botorch/issues/180
+            model = HeteroskedasticSingleTaskGP(self.X, train_Y, train_Yvar=train_Yvar)
+        # model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar)
+        elif self.sm in ["fngp", "fgp"]:
+            model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar, covar_module=covar_module)
+        else:
+            model = SingleTaskGP(self.X, self.Y, covar_module=covar_module)
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
 
         with gpytorch.settings.max_cholesky_size(float("inf")):

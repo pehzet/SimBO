@@ -1,5 +1,10 @@
 # Changelog
 
+## 04.10.2022
+- set surrogate model für turbo and gpei as experiment parameter (gsheet)
+- identify best trial fixed
+- Bug at CMA-ES fixed. Now finds minimum instead of maximum
+
 ## 30.09.2022
 - Brute Force with logs
 - log every new best point
