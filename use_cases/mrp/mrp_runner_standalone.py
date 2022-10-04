@@ -41,6 +41,7 @@ class MRPRunner():
         init_mrp_sim(self.bom, self.materials, self.orders)
         self.X = list()
         self.Y_raw = list()
+        self.counter = 0
     def run_solver(self, params):
         '''
         Expects: {material_param_name : value} (one dict, no list!)
@@ -64,7 +65,7 @@ class MRPRunner():
             result["costs"] += base
             self.Y_raw.append(result)
         y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_solver_runs:])
-  
+        self.counter += 1
         return y
 
     def get_mean_and_sem_from_y(self, y_raw):
@@ -358,11 +359,15 @@ if __name__ == '__main__':
     #         with open("sems_base.csv","a",newline ='') as f:
     #             writer = csv.writer(f)
     #             writer.writerow([bom_id, nsr, sem_perc, y[0][0], y[0][1], ])
+    import datetime
 
-
-    runner = MRPRunner(bom_id=bom_id, num_solver_runs=1, )
+    runner = MRPRunner(bom_id=bom_id, num_solver_runs=5, )
     MRPRunner.stochastic_method = sm
     #x = torch.tensor([random.random() for _ in range(10)])
-    y = runner.eval(x, base=0)
+    for i in range(1000):
+        y = runner.eval(x, base=0)
+        if i % 100 == 0:
+            ic(datetime.datetime.now().isoformat())
+            ic(f"Trial Number: {runner.counter}")
     #y_base = 5201*85
 

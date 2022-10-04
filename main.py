@@ -4,6 +4,7 @@
 from genericpath import isfile
 import warnings
 import logging
+from numpy import NaN
 
 from sqlalchemy import false
 logging.basicConfig(
@@ -88,13 +89,16 @@ class ExperimentRunner:
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             batch_size = algorithm_config.get("batch_size")
             self.num_batches = algorithm_config.get("num_batches")
-            return TurboRunner(self.experiment_id, self.replication, dim,batch_size, num_init=num_init, device=tkwargs["device"], dtype=tkwargs["dtype"])
+            sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default", "nan", NaN] else "fngp"
+            ic(sm)
+            return TurboRunner(self.experiment_id, self.replication, dim,batch_size, num_init=num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "gpei":
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             batch_size = algorithm_config.get("batch_size")
             self.num_batches = algorithm_config.get("num_batches")
-            return GPEIRunner(self.experiment_id, self.replication, dim,batch_size, num_init, device=tkwargs["device"], dtype=tkwargs["dtype"])
+            sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default","nan", NaN] else "hsgp"
+            return GPEIRunner(self.experiment_id, self.replication, dim,batch_size, num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "saasbo":
             self.num_batches = algorithm_config.get("num_batches")
@@ -120,7 +124,7 @@ class ExperimentRunner:
     
     def get_use_case_runner(self, use_case_config : dict):
         if use_case_config.get("use_case").lower() == "mrp":
-            return MRPRunner(use_case_config.get("bom_id"), use_case_config.get("num_solver_runs"), use_case_config.get("stochastic_method"))
+            return MRPRunner(use_case_config.get("bom_id"), use_case_config.get("num_sim_runs"), use_case_config.get("stochastic_method"))
      
 
     def log_x_and_y(self,x,y):
@@ -306,7 +310,7 @@ class ExperimentRunner:
                 _y.append(self.use_case_runner.eval(xx))
                 _eval_end_seconds = time.monotonic()
                 self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
-            
+                
                 if eval_counter % 100 == 0:
                     logger.info(f"Number evaluations: {eval_counter}")
                 eval_counter += 1
@@ -318,7 +322,7 @@ class ExperimentRunner:
             self.trial_runtimes_second.append((_end_trial- _start_trial))
             self.eval_budget -= len(x)
             self.current_trial +=1
-            logger.info(f"Trial {self.current_trial} with {len(x)} Arms completed completed")
+            logger.info(f"Trial {self.current_trial} with {len(x)} Arms completed")
         _end = time.monotonic()
         self.experiment_end_dts = datetime.now().isoformat()
         self.total_duration_seconds =  _end -_start
