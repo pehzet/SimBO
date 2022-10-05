@@ -17,7 +17,7 @@ class CMAESRunner(AlgorithmRunner):
         self.X = list()
         self.Y = list()
         opts.set('bounds', self.bounds)
-        opts.set('popsize', self.batch_size)
+        opts.set('popsize', self.trial_size)
         opts.set('seed', 12345)
         # NOTE: lt. Link oben benötigt cmaes 100xdim candidates für befriedigende Ergebnisse
         self.es = cma.CMAEvolutionStrategy(self.dim*[0], sigma0=self.sigma0,inopts=opts)
@@ -30,7 +30,7 @@ class CMAESRunner(AlgorithmRunner):
             l = torch.tensor(np.array(l))
         return l
     def suggest_initial(self):
-        logger.info(f"Suggest Initial skipped, because cmaes doesnt require random initialization. Suggest {self.batch_size} non-random candidates instead")
+        logger.info(f"Suggest Initial skipped, because cmaes doesnt require random initialization. Suggest {self.trial_size} non-random candidates instead")
         return self.suggest()
 
     def suggest(self):

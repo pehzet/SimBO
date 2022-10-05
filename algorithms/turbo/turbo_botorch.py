@@ -3,7 +3,7 @@ logger = logging.getLogger("turbo")
 
 import pickle
 import math
-
+from icecream import ic
 from dataclasses import dataclass
 
 import torch
@@ -34,36 +34,41 @@ class TurboState():
     dim: int
     batch_size: int
     length: float = 0.8
-    length_min: float = 0.5 ** 7
+    length_min: float = 0.5 ** 3 # was ** 7
     length_max: float = 1.6
     failure_counter: int = 0
-    failure_tolerance: int = float("nan")  # Note: Post-initialized
+    failure_tolerance: int = 3 #float("nan")  # Note: Post-initialized
     success_counter: int = 0
-    success_tolerance: int = 10  # Note: The original paper uses 3
+    success_tolerance: int = 3  # Note: The original paper uses 3
     best_value: float = -float("inf")
     restart_triggered: bool = False
 
-    def __post_init__(self):
-        self.failure_tolerance = math.ceil(
-            max([4.0 / self.batch_size, float(self.dim) / self.batch_size])
-        )
+    # def __post_init__(self):
+    #     self.failure_tolerance = math.ceil(
+    #         max([4.0 / self.batch_size, float(self.dim) / self.batch_size])
+    #     )
     
     def update_state(self, Y_next):
         if max(Y_next) > self.best_value + 1e-3 * math.fabs(self.best_value):
+            ic("better")
             self.success_counter += 1
             self.failure_counter = 0
         else:
+            ic("worse")
             self.success_counter = 0
             self.failure_counter += 1
 
         if self.success_counter == self.success_tolerance:  # Expand trust region
+            logger.info("Expand trust region")
             self.length = min(2.0 * self.length, self.length_max)
             self.success_counter = 0
         elif self.failure_counter == self.failure_tolerance:  # Shrink trust region
+            logger.info("Shrink trust region")
             self.length /= 2.0
             self.failure_counter = 0
 
         self.best_value = max(self.best_value, max(Y_next).item())
+
         if self.length < self.length_min:
             self.restart_triggered = True
         return self
@@ -71,12 +76,11 @@ class TurboState():
 @dataclass
 class TurboRunner(AlgorithmRunner):
 
-    def __init__(self, experiment_id, replication, dim, batch_size, num_init, device, dtype, sm="fngp"):
-        super().__init__(experiment_id,  replication, dim, batch_size, num_init, device, dtype)
-        self.state = TurboState(dim=self.dim, batch_size=self.batch_size)
+    def __init__(self, experiment_id, replication, dim, trial_size, num_init, device, dtype, sm="fngp"):
+        super().__init__(experiment_id,  replication, dim, trial_size, num_init, device, dtype)
+        self.state = TurboState(dim=self.dim, batch_size=self.trial_size)
         logger.info(f"Running on device: {self.device} and dtype: {self.dtype}")
-        
-        self.sm = "fngp" # TODO: make configuable later
+
         self.sm = sm 
         self.acqf = "ts" # TODO: make configuable later
         self.X_all = None
@@ -88,15 +92,16 @@ class TurboRunner(AlgorithmRunner):
         self.num_restarts +=1
         self.terminate_experiment()
         self.X_all = torch.cat((self.X_all, self.X), dim=0) if self.X_all is not None else self.X
-        self.state = TurboState(dim=self.dim, batch_size=self.batch_size)
+        self.state = TurboState(dim=self.dim, batch_size=self.trial_size)
         self.X = None
         self.Y = None
         self.X_next = None
         self.Y_next = None
         self.Yvar = None
         self.Yvar_next = None
-
+        
     def suggest(self):
+        self.is_init = False
         if self.state.restart_triggered:
             self.restart_state()
             self.X_next = self.suggest_initial()
@@ -139,7 +144,22 @@ class TurboRunner(AlgorithmRunner):
 
         return self.X_next
 
-    # TODO: Implement as class method...
+    def complete(self, y, yvar = None):
+        self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
+        
+        self.identity_best_in_trial()
+        
+        if yvar is not None:
+            self.Yvar_next = torch.tensor(yvar, dtype=self.dtype, device=self.device).unsqueeze(-1)
+            self.Yvar = torch.cat((self.Yvar, self.Yvar_next),  dim=0) if self.Yvar is not None else self.Yvar_next
+        
+        # do this step to avoid updating state after init trials
+        if not self.is_init:
+            self.state = self.state.update_state(Y_next=self.Y_next)
+
+        self.X = torch.cat((self.X, self.X_next), dim=0) if self.X is not None else self.X_next
+        self.Y = torch.cat((self.Y, self.Y_next), dim=0) if self.Y is not None else self.Y_next
+    
     def generate_batch(self, model, Y, acqf, n_candidates = None, num_restarts=10, raw_samples=512):
         assert acqf in ("ts", "ei")
         assert self.X.min() >= 0.0 and self.X.max() <= 1.0 and torch.all(torch.isfinite(Y))
@@ -176,14 +196,14 @@ class TurboRunner(AlgorithmRunner):
             # Sample on the candidate points
             thompson_sampling = MaxPosteriorSampling(model=model, replacement=False)
             with torch.no_grad():  # We don't need gradients when using TS
-                X_next = thompson_sampling(X_cand, num_samples=self.batch_size)
+                X_next = thompson_sampling(X_cand, num_samples=self.trial_size)
 
         elif acqf == "ei":
-            ei = qExpectedImprovement(model, Y.max(), maximize=True)
+            ei = qExpectedImprovement(model, self.Y.max(), maximize=True)
             X_next, acq_value = optimize_acqf(
                 ei,
                 bounds=torch.stack([tr_lb, tr_ub]),
-                q=self.batch_size,
+                q=self.trial_size,
                 num_restarts=num_restarts,
                 raw_samples=raw_samples,
             )

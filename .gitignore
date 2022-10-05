@@ -25,3 +25,5 @@ sems_base_group.csv
 sems_group.csv
 use_cases/mrp/sems.csv
 use_cases/mrp/sems_base.csv
+experiment_config_generator.py
+all_experiments.xlsx

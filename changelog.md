@@ -1,5 +1,12 @@
 # Changelog
 
+## 05.10.2022
+- wording change: batch_* -> trial_*
+- small change cma-es. Skipps initial now and generates {trial_size} arms directly
+- turbo state updates correctly now
+- reduced tolerance of turbo to force exploration
+- 
+
 ## 04.10.2022
 - set surrogate model für turbo and gpei as experiment parameter (gsheet)
 - identify best trial fixed

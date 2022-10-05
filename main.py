@@ -88,20 +88,19 @@ class ExperimentRunner:
         if self.algorithm == "turbo":
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             batch_size = algorithm_config.get("batch_size")
-            self.num_batches = algorithm_config.get("num_batches")
+            self.num_trials = algorithm_config.get("num_trials")
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default", "nan", NaN] else "fngp"
-            ic(sm)
             return TurboRunner(self.experiment_id, self.replication, dim,batch_size, num_init=num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "gpei":
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
             batch_size = algorithm_config.get("batch_size")
-            self.num_batches = algorithm_config.get("num_batches")
+            self.num_trials = algorithm_config.get("num_trials")
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default","nan", NaN] else "hsgp"
             return GPEIRunner(self.experiment_id, self.replication, dim,batch_size, num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "saasbo":
-            self.num_batches = algorithm_config.get("num_batches")
+            self.num_trials = algorithm_config.get("num_trials")
             warmup_steps = algorithm_config.get("warmup_steps", 512)
             num_samples = algorithm_config.get("num_samples", 256)
             thinning = algorithm_config.get("thinning", 16)
@@ -265,15 +264,12 @@ class ExperimentRunner:
 
         eval_counter = 0
         for xx in x:
-            
             eval_counter += 1
             _eval_start_seconds = time.monotonic()
             _y.append(self.use_case_runner.eval(xx))
             _eval_end_seconds = time.monotonic()
             self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
-            
             if eval_counter % 100 == 0:
-  
                 logger.info(f"Number evaluations: {eval_counter}")
                 if self.algorithm == "brute_force":
                     self.log_x_and_y(x,_y)
