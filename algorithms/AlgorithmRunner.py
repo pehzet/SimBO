@@ -62,8 +62,7 @@ class AlgorithmRunner:
         self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
         
         self.identity_best_in_trial()
-        
-
+    
         if yvar is not None:
             self.Yvar_next = torch.tensor(yvar, dtype=self.dtype, device=self.device).unsqueeze(-1)
             self.Yvar = torch.cat((self.Yvar, self.Yvar_next),  dim=0) if self.Yvar is not None else self.Yvar_next
