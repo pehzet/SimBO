@@ -50,7 +50,7 @@ class GPEIRunner(AlgorithmRunner):
         self.X_next, acq_values = optimize_acqf(
             acq_function=acqf,
             bounds=torch.cat((torch.zeros(1, self.dim), torch.ones(1, self.dim))).to(dtype=self.dtype, device=self.device),
-            q=self.batch_size,
+            q=self.trial_size,
             num_restarts=10,
             raw_samples=1024,
             sequential=True,

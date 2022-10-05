@@ -23,9 +23,9 @@ from botorch.utils.transforms import unnormalize, normalize
 from icecream import ic
 class MRPRunner():
 
-    def __init__(self, bom_id, num_solver_runs=5, stochastic_method=True):
+    def __init__(self, bom_id, num_sim_runs=5, stochastic_method=True):
         self.bom_id = bom_id
-        self.num_solver_runs = num_solver_runs
+        self.num_sim_runs = num_sim_runs
         self.stochastic_method = stochastic_method
         self.bom = None
         self.materials = None
@@ -46,10 +46,10 @@ class MRPRunner():
 
         self.X.append(x)
         releases = self.run_solver(x)
-        for _ in range(self.num_solver_runs):
+        for _ in range(self.num_sim_runs):
             result = MRPSimulation(releases, stochastic_method = self.stochastic_method).run_simulation()
             self.Y_raw.append(result)
-        y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_solver_runs:])
+        y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_sim_runs:])
   
         return y
 

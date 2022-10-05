@@ -1,5 +1,6 @@
 import torch
 import logging
+
 logger = logging.getLogger("algorithm")
 from torch.quasirandom import SobolEngine
 from pathlib import Path
@@ -9,12 +10,12 @@ from icecream import ic
 @dataclass
 class AlgorithmRunner:
 
-    def __init__(self, experiment_id, replication, dim, batch_size, num_init=-1, device="cpu", dtype=torch.double) -> None:
+    def __init__(self, experiment_id, replication, dim, trial_size, num_init=-1, device="cpu", dtype=torch.double) -> None:
         self.experiment_id = experiment_id
         self.replication = replication
         self.dim = dim
         self.num_init = dim * 2 if num_init == -1 else num_init
-        self.batch_size = batch_size
+        self.trial_size = trial_size
         
         self.X = None
         self.Y = None
@@ -37,8 +38,10 @@ class AlgorithmRunner:
         self.dtype=dtype
 
         self.lengthscales = None
+        self.is_init = True
     
     def suggest_initial(self):
+        self.is_init = True
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=0)
         self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
         logger.debug(f"Initial SOBOL candidates: {self.X_next}")
@@ -48,7 +51,7 @@ class AlgorithmRunner:
         best_in_trial = max(self.Y_next).item() # TODO: Think about general way to handle min and max
         if self.Y_current_best == None:
             self.Y_current_best = best_in_trial
-            logger.info(f"New best Y found: {self.Y_current_best}")
+            logger.info(f"New best Y found: {self.Y_current_best*-1}")
         else:
             # is_better = self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial
             if self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial:
