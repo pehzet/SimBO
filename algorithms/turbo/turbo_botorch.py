@@ -50,11 +50,9 @@ class TurboState():
     
     def update_state(self, Y_next):
         if max(Y_next) > self.best_value + 1e-3 * math.fabs(self.best_value):
-            ic("better")
             self.success_counter += 1
             self.failure_counter = 0
         else:
-            ic("worse")
             self.success_counter = 0
             self.failure_counter += 1
 
