@@ -6,7 +6,7 @@ import logging
 import itertools
 logger = logging.getLogger("mrpsolver")
 from icecream import ic
-
+import math
 
 
 class Material():
@@ -26,6 +26,8 @@ class Material():
     def release_order(self):
         releases = list()
         for i,r in  enumerate(self.greq):
+            # if str(self.id).startswith("3"):
+            #     ic(self.__dict__)
             if r > 0:
                 releases.append({
                 "period" : i , 
@@ -66,14 +68,14 @@ class MRPSolver():
 
         quantity = quantity if material.first_period_bom == True else (quantity + material.safety_stock - material.initial_stock)
     
-        material.greq[period] += quantity
+        material.greq[period] += math.ceil(quantity)
    
         material.first_period_bom = True
         for b in material.bom:
             child = self.get_material_by_id(b.get("child_id"))
             child_quantity = quantity * b.get("quantity")
 
-            self.explode_bom(child, child_quantity, period)
+            self.explode_bom(child, math.ceil(child_quantity), period)
     
 
     def run(self):

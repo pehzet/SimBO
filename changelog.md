@@ -1,11 +1,15 @@
 # Changelog
 
+## 07.10.2022
+- rounding bug fixed in mrp
+- reduced stochastic propability in mrp_sim (got to eval if promising) 
+
 ## 05.10.2022
 - wording change: batch_* -> trial_*
 - small change cma-es. Skipps initial now and generates {trial_size} arms directly
 - turbo state updates correctly now
 - reduced tolerance of turbo to force exploration
-- 
+- increased penalty cost rate from 0.25 to 0.33 (reason: at 50D best value found at sl of 0.78)
 
 ## 04.10.2022
 - set surrogate model für turbo and gpei as experiment parameter (gsheet)
