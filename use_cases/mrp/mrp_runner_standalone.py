@@ -3,6 +3,7 @@
 from copy import deepcopy
 import os
 import logging
+from typing import List
 
 
 logger = logging.getLogger("mrp")
@@ -14,7 +15,8 @@ import pandas as pd
 import urllib
 
 from mrp_solver import MRPSolver
-from mrp_sim_eval import MRPSimulation, init_mrp_sim
+# from mrp_sim_eval import MRPSimulation, init_mrp_sim
+from mrp_sim import MRPSimulation, init_mrp_sim
 import os
 import torch
 import numpy as np
@@ -26,9 +28,9 @@ from icecream import ic
 import random
 class MRPRunner():
 
-    def __init__(self, bom_id, num_solver_runs=5, stochastic_method="discrete"):
+    def __init__(self, bom_id, num_sim_runs=5, stochastic_method="discrete"):
         self.bom_id = bom_id
-        self.num_solver_runs = num_solver_runs
+        self.num_sim_runs = num_sim_runs
         self.stochastic_method = stochastic_method
         self.bom = None
         self.materials = None
@@ -59,12 +61,12 @@ class MRPRunner():
 
         self.X.append(x)
         releases = self.run_solver(x)
-        for _ in range(self.num_solver_runs):
+        for _ in range(self.num_sim_runs):
             result = MRPSimulation(releases, stochastic_method = self.stochastic_method).run_simulation()
 
             result["costs"] += base
             self.Y_raw.append(result)
-        y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_solver_runs:])
+        y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_sim_runs:])
         self.counter += 1
         return y
 
@@ -92,12 +94,12 @@ class MRPRunner():
         x = unnormalize(x, bounds=self.bounds)
         x_mrp = []
         for i,pm in enumerate(self.param_meta):
-    
+
             x_mrp.append(
                 {   
                 "id" : pm.get("name").split("_",1)[0],
                 "name" : pm.get("name").split("_",1)[1],
-                "value" : int(round(x[i].item()))
+                "value" : int(round(x[i].item()+0.0001)) # added minor value because Py3.x rounds half down
                 }
             )
 
@@ -126,6 +128,7 @@ class MRPRunner():
         ub = [pm.get("upper_bound") for pm in self.param_meta]
         #bounds = [(pm.get("lower_bound",pm.get("bounds")[0]) , pm.get("upper_bound",pm.get("bounds")[1])) for pm in self.param_meta]
         bounds = torch.tensor([lb, ub])
+
         return bounds
 
     def format_params_for_mrp(self, params):
@@ -328,46 +331,65 @@ def formatDF(file):
     return f
 
 
+def run_eval_manual(bom_id, params, num_sim_runs = 5, stochastic_method="discrete"):
+    runner = MRPRunner(bom_id=bom_id, num_sim_runs=num_sim_runs,stochastic_method = stochastic_method)
+    if params in ["min", "max"]:
 
-import csv
-if __name__ == '__main__':
-    bom_id = 10
-    # x = torch.tensor([random.random() for _ in range(10)])
-    #x=torch.tensor([0.4892, 0.9198, 0.8017, 0.6702, 0.9139, 0.4037, 0.2267, 0.3581, 0.4140, 0.5538])
-    x = [{'id': '1002', 'name': 'safety_stock', 'value': 50},
-        {'id': '1002', 'name': 'safety_time', 'value': 1},
-        {'id': '2001', 'name': 'safety_stock', 'value': 100},
-        {'id': '2001', 'name': 'safety_time', 'value': 2},
-        {'id': '2002', 'name': 'safety_stock', 'value': 100},
-        {'id': '2002', 'name': 'safety_time', 'value': 2},
-        {'id': '3001', 'name': 'safety_stock', 'value': 150},
-        {'id': '3001', 'name': 'safety_time', 'value': 2},
-        {'id': '3002', 'name': 'safety_stock', 'value': 150},
-        {'id': '3002', 'name': 'safety_time', 'value': 2}]
-    sm = "discrete"
-    # for i in range(1,31):
-    #     nsr = i
-    #     for j in range(10):
-    #         runner = MRPRunner(bom_id=bom_id, num_solver_runs=nsr, )
-    #         MRPRunner.stochastic_method = sm
-    #         x = torch.tensor([random.random() for _ in range(10)])
-    #         y = runner.eval(x, base=5201*85)
-    #         #y_base = 5201*85
+        x = torch.ones(len(runner.bounds[0])) if params=="max" else torch.zeros(len(runner.bounds[0]))
+  
+    elif isinstance(params,float):
+        x = torch.ones(len(runner.bounds[0]))*params
+    else:
+        assert isinstance(params, torch.Tensor) or isinstance(params, list)
+        x = normalize(params,runner.bounds)
+    x = runner.transform_x(x)
+
+
+    y = runner.eval(x)
+    print(y)
+
+run_eval_manual(50,0.5, num_sim_runs=10)
+    
+
+# import csv
+# if __name__ == '__main__':
+#     bom_id = 10
+#     # x = torch.tensor([random.random() for _ in range(10)])
+#     #x=torch.tensor([0.4892, 0.9198, 0.8017, 0.6702, 0.9139, 0.4037, 0.2267, 0.3581, 0.4140, 0.5538])
+#     x = [{'id': '1002', 'name': 'safety_stock', 'value': 50},
+#         {'id': '1002', 'name': 'safety_time', 'value': 1},
+#         {'id': '2001', 'name': 'safety_stock', 'value': 100},
+#         {'id': '2001', 'name': 'safety_time', 'value': 2},
+#         {'id': '2002', 'name': 'safety_stock', 'value': 100},
+#         {'id': '2002', 'name': 'safety_time', 'value': 2},
+#         {'id': '3001', 'name': 'safety_stock', 'value': 150},
+#         {'id': '3001', 'name': 'safety_time', 'value': 2},
+#         {'id': '3002', 'name': 'safety_stock', 'value': 150},
+#         {'id': '3002', 'name': 'safety_time', 'value': 2}]
+#     sm = "discrete"
+#     # for i in range(1,31):
+#     #     nsr = i
+#     #     for j in range(10):
+#     #         runner = MRPRunner(bom_id=bom_id, num_solver_runs=nsr, )
+#     #         MRPRunner.stochastic_method = sm
+#     #         x = torch.tensor([random.random() for _ in range(10)])
+#     #         y = runner.eval(x, base=5201*85)
+#     #         #y_base = 5201*85
             
-    #         sem_perc = y[0][1] /y[0][0]
-    #         # ic(sem_perc)
-    #         with open("sems_base.csv","a",newline ='') as f:
-    #             writer = csv.writer(f)
-    #             writer.writerow([bom_id, nsr, sem_perc, y[0][0], y[0][1], ])
-    import datetime
+#     #         sem_perc = y[0][1] /y[0][0]
+#     #         # ic(sem_perc)
+#     #         with open("sems_base.csv","a",newline ='') as f:
+#     #             writer = csv.writer(f)
+#     #             writer.writerow([bom_id, nsr, sem_perc, y[0][0], y[0][1], ])
+#     import datetime
 
-    runner = MRPRunner(bom_id=bom_id, num_solver_runs=5, )
-    MRPRunner.stochastic_method = sm
-    #x = torch.tensor([random.random() for _ in range(10)])
-    for i in range(1000):
-        y = runner.eval(x, base=0)
-        if i % 100 == 0:
-            ic(datetime.datetime.now().isoformat())
-            ic(f"Trial Number: {runner.counter}")
-    #y_base = 5201*85
+#     runner = MRPRunner(bom_id=bom_id, num_sim_runs=5, )
+#     MRPRunner.stochastic_method = sm
+#     #x = torch.tensor([random.random() for _ in range(10)])
+#     for i in range(1000):
+#         y = runner.eval(x, base=0)
+#         if i % 100 == 0:
+#             ic(datetime.datetime.now().isoformat())
+#             ic(f"Trial Number: {runner.counter}")
+#     #y_base = 5201*85
 
