@@ -74,8 +74,8 @@ class TurboState():
 @dataclass
 class TurboRunner(AlgorithmRunner):
 
-    def __init__(self, experiment_id, replication, dim, trial_size, num_init, device, dtype, sm="fngp"):
-        super().__init__(experiment_id,  replication, dim, trial_size, num_init, device, dtype)
+    def __init__(self, experiment_id, replication, dim, trial_size, constraints, num_init, device, dtype, sm="fngp"):
+        super().__init__(experiment_id,  replication, dim, trial_size, constraints, num_init, device, dtype)
         self.state = TurboState(dim=self.dim, batch_size=self.trial_size)
         logger.info(f"Running on device: {self.device} and dtype: {self.dtype}")
 
@@ -204,6 +204,7 @@ class TurboRunner(AlgorithmRunner):
                 q=self.trial_size,
                 num_restarts=num_restarts,
                 raw_samples=raw_samples,
+                inequality_constraints=self.constraints
             )
 
         return X_next
