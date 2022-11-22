@@ -7,10 +7,11 @@ from pathlib import Path
 import pickle
 from dataclasses import dataclass
 from icecream import ic
+from torch import tensor
 @dataclass
 class AlgorithmRunner:
 
-    def __init__(self, experiment_id, replication, dim, trial_size, num_init=-1, device="cpu", dtype=torch.double) -> None:
+    def __init__(self, experiment_id, replication, dim, trial_size, constraints, num_init=-1, device="cpu", dtype=torch.double) -> None:
         self.experiment_id = experiment_id
         self.replication = replication
         self.dim = dim
@@ -36,10 +37,16 @@ class AlgorithmRunner:
         self.eval_budget = None
         self.device=device
         self.dtype=dtype
-
+        # NOTE: only inequality constraints implemented
+        self.constraints = self.constraints_to_tensor(constraints)
         self.lengthscales = None
         self.is_init = True
     
+    def constraints_to_tensor(self, constraints):
+        _constraints = []
+        for c in constraints:
+            _constraints.append((tensor(c[0], dtype=torch.int64), tensor(c[1], dtype=self.dtype), float(c[2])))
+        return _constraints
     def suggest_initial(self):
         self.is_init = True
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=0)

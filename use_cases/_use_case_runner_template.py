@@ -11,8 +11,7 @@ logger = logging.getLogger("mrp")
 from pandas import DataFrame
 from utils.gsheet_utils import read_gsheet, formatDF
 from torch import tensor
-from use_cases.mrp.mrp_solver import MRPSolver
-from use_cases.mrp.mrp_sim import MRPSimulation, init_mrp_sim
+
 import os
 import torch
 import numpy as np
@@ -21,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from botorch.utils.transforms import unnormalize, normalize
 from icecream import ic
-class MRPRunner():
+class UseCaseRunnerTemplate():
 
     def __init__(self, bom_id, num_sim_runs=5, stochastic_method=True):
         self.bom_id = bom_id
@@ -35,14 +34,12 @@ class MRPRunner():
         self.minimize = True
         self.param_meta = self.get_param_meta_from_materials()
         self.bounds = self.get_bounds_from_param_meta()
-        init_mrp_sim(self.bom, self.materials, self.orders)
+ 
         self.X = list()
         self.Y_raw = list()
-        self.constraints = self.create_constraints()
 
 
-    def create_constraints():
-        return None
+
     def eval(self, x, ):
         x = self.transform_x(x)
 

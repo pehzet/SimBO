@@ -1,4 +1,10 @@
 # Changelog
+## 22.11.2022
+- Implemented Simulation Driven Runner
+- Old Runner is now Algorithm Driven Runner
+- Implemented Use Case pfp (Maurice BA)
+- Implemented inequality parameter constraint (sum(w*p) >= c)
+- NOTE: TOP 1-3 are not finished
 
 ## 07.10.2022
 - rounding bug fixed in mrp

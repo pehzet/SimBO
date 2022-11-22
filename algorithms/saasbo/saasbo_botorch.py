@@ -15,8 +15,8 @@ from algorithms.AlgorithmRunner import AlgorithmRunner
 from icecream import ic
 
 class SaasboRunner(AlgorithmRunner):
-    def __init__(self, experiment_id,  replication, dim, num_init, batch_size, warmup_steps,num_samples,thinning, device, dtype):
-        super().__init__(experiment_id, replication, dim, batch_size, num_init, device, dtype)
+    def __init__(self, experiment_id,  replication, dim, num_init, batch_size,constraints, warmup_steps,num_samples,thinning, device, dtype):
+        super().__init__(experiment_id, replication, dim, batch_size, constraints, num_init, device, dtype)
         self.sm = "saasgp" # TODO: make configuable later
         self.acqf = "qEI" # TODO: make configuable later
         self.warmup_steps: int = warmup_steps
@@ -48,7 +48,8 @@ class SaasboRunner(AlgorithmRunner):
             q=self.trial_size,
             num_restarts=10,
             raw_samples=1024,
-            sequential=True
+            sequential=True,
+            inequality_constraints=self.constraints
         )
     
         acq_values=torch.unsqueeze(acq_values, dim=0) if acq_values.ndim==0 else acq_values
