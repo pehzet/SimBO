@@ -34,8 +34,8 @@ class PfpRunner():
         self.X = list()
         self.Y_raw = list()
         self.constraints = self.create_constraints()
-
-
+        self.x_t = []
+        self.cost_factor = 4.33
 
     # def eval(self, x, ):
     #     x = self.transform_x(x)
@@ -53,7 +53,8 @@ class PfpRunner():
         _indices = [i for i in range(len(self.param_meta))]
         _coefficients = [-1 for j in range(len(self.param_meta))]
         _rhs = -2.5*len(self.param_meta)
-        return [(_indices,_coefficients, _rhs)]
+        # return [(_indices,_coefficients, _rhs)]
+        return None
 
     def get_mean_and_sem_from_y(self, y_raw):
         data = list()
@@ -85,10 +86,11 @@ class PfpRunner():
             x_t.append(
                 {   
                 "name" : pm.get("name"),
-                "value" : int(round(x[i].item()))
+                "value" : int(round(x[i].item())),
+                "costs" : pm.get("costs")
                 }
             )
-
+        self.x_t = x_t
         return x_t
     def write_x_to_xlsx(self, x, run_no, path=None):
         # x= [{name : _id, value : 1}]
@@ -115,9 +117,13 @@ class PfpRunner():
     def format_simulation_response(self,resp):
         y = []
         for r in resp:
-
             for rv in r.values():
-                y.append(rv[0])
+                material_costs = 0
+                for xx in self.x_t:
+                    material_costs += max((xx.get("value")-1),0) * xx.get("costs")
+                c = rv[0] * self.cost_factor + material_costs
+                ic(c)
+                y.append(c)
         return y
 
     def get_bounds_from_param_meta(self):
@@ -141,17 +147,24 @@ class PfpRunner():
 
     def get_param_meta_from_gsheet(self):
         param_meta = []
+        
         sheet_id = os.getenv("SHEET_ID")
         raw = formatDF(read_gsheet(sheet_id, "pfp_molds"))
+
         for r in raw:
+
             if r.get("usedInCurrentPeriod") and r.get("productType") == "Cup":
                 param_meta.append({
                 "name" : r.get("id"),
                 "lower_bound" : r.get("lower_bound",0),
                 "upper_bound" : r.get("upper_bound",1),
                 "type" : "int",
-                "fixed" : False
+                "fixed" : False,
+                "costs" : r.get("costs")
                 })
+           
+
+
 
         return param_meta
 

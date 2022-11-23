@@ -222,7 +222,7 @@ class ExperimentRunnerSimulationDriven:
 
         assert len(self.x) > 0
         logger.info(f"Trial {self.current_trial} with {len(self.x)} Arms generated")
-
+        
         self.current_trial +=1
         arm_names_in_call = []
         x_t = [self.use_case_runner.transform_x(_x) for _x in self.x]
