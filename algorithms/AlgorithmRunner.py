@@ -43,10 +43,12 @@ class AlgorithmRunner:
         self.is_init = True
     
     def constraints_to_tensor(self, constraints):
-        _constraints = []
-        for c in constraints:
-            _constraints.append((tensor(c[0], dtype=torch.int64), tensor(c[1], dtype=self.dtype), float(c[2])))
-        return _constraints
+        if constraints is not None:
+            _constraints = []
+            for c in constraints:
+                _constraints.append((tensor(c[0], dtype=torch.int64), tensor(c[1], dtype=self.dtype), float(c[2])))
+            return _constraints
+        return None
     def suggest_initial(self):
         self.is_init = True
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=0)
