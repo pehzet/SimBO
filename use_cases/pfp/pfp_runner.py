@@ -151,10 +151,13 @@ class PfpRunner():
         
         sheet_id = os.getenv("SHEET_ID")
         raw = formatDF(read_gsheet(sheet_id, "pfp_molds"))
-
-        for r in raw:
-
-            if r.get("usedInCurrentPeriod") and r.get("productType") == "Disc":
+        limit = 50
+        i=1
+        for r in raw: 
+            if i > limit:
+                break
+            if r.get("usedInCurrentPeriod") and r.get("is_relevant"):
+                i+=1
                 param_meta.append({
                 "name" : r.get("id"),
                 "lower_bound" : r.get("lower_bound",0),
