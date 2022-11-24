@@ -96,7 +96,7 @@ class PfpRunner():
         # x= [{name : _id, value : 1}]
         # read
         # read_file_name = Path(r"C:\Users\pzmijews\Documents\Studium\Projekt\Simio\Simio_ProductionModel_MRethmann\ModelData\ModelData_v2.xlsx")
-        _original = pd.read_excel(r"C:\Users\pzmijews\Documents\Studium\Projekt\Simio\Simio_ProductionModel_MRethmann\ModelData\ModelData_v2.xlsx","Molds",)
+        _original = pd.read_excel(r"C:\SimioModels\Simio_ProductionModel_MRethmann\ModelData\ModelData_v2.xlsx","Molds",)
         original = _original.to_dict('records')
 
         for _x in x:
@@ -105,7 +105,8 @@ class PfpRunner():
                 if o.get("ID",1) == int(_x.get("name",-1)):
                     o["Quantity"] = _x.get("value")
         if path is None:
-            path = r'C:\Users\pzmijews\Documents\Studium\Projekt\Simio\Simio_ProductionModel_MRethmann\ModelData'
+            # path = r'C:\Users\pzmijews\Documents\Studium\Projekt\Simio\Simio_ProductionModel_MRethmann\ModelData'
+            path = r'C:\SimioModels\Simio_ProductionModel_MRethmann\ModelData'
         fname = 'Molds_' + str(run_no) + '.xlsx'
         #x = unnormalize(x, bounds=self.bounds)
 
@@ -122,7 +123,7 @@ class PfpRunner():
                 for xx in self.x_t:
                     material_costs += max((xx.get("value")-1),0) * xx.get("costs")
                 c = rv[0] * self.cost_factor + material_costs
-                ic(c)
+
                 y.append(c)
         return y
 
@@ -153,7 +154,7 @@ class PfpRunner():
 
         for r in raw:
 
-            if r.get("usedInCurrentPeriod") and r.get("productType") == "Cup":
+            if r.get("usedInCurrentPeriod") and r.get("productType") == "Disc":
                 param_meta.append({
                 "name" : r.get("id"),
                 "lower_bound" : r.get("lower_bound",0),
