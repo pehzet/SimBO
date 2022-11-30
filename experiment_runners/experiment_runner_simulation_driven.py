@@ -132,7 +132,7 @@ class ExperimentRunnerSimulationDriven:
             batch_size = algorithm_config.get("batch_size")
             self.num_trials = algorithm_config.get("num_trials")
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default", "nan", NaN] else "fngp"
-            return TurboRunner(self.experiment_id, self.replication, dim,batch_size, num_init=num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
+            return TurboRunner(self.experiment_id, self.replication, dim,batch_size,constraints, num_init=num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "gpei":
             num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
@@ -213,27 +213,34 @@ class ExperimentRunnerSimulationDriven:
         return {}
 
     def suggest(self):
- 
-        self._start_trial = time.monotonic()
-        if self.current_trial == 0:
-            self.x = self.algorithm_runner.suggest_initial()
-        else:
-            self.x = self.algorithm_runner.suggest()
+        try:
+            self._start_trial = time.monotonic()
+            if self.current_trial == 0:
+                self.x = self.algorithm_runner.suggest_initial()
+            else:
+                self.x = self.algorithm_runner.suggest()
 
-        assert len(self.x) > 0
-        logger.info(f"Trial {self.current_trial} with {len(self.x)} Arms generated")
-        
-        self.current_trial +=1
-        arm_names_in_call = []
-        x_t = [self.use_case_runner.transform_x(_x) for _x in self.x]
-        
-        for xx in x_t:
+            assert len(self.x) > 0
+            logger.info(f"Trial {self.current_trial} with {len(self.x)} Arms generated")
+            
+            self.current_trial +=1
+            arm_names_in_call = []
+            x_t = [self.use_case_runner.transform_x(_x) for _x in self.x]
+            
+            for xx in x_t:
 
-            if self.is_ddo:
-                self.use_case_runner.write_x_to_xlsx(xx, self.current_arm+1)
-                arm_names_in_call.append(self.current_arm+1)
-                self.current_arm +=1
-        return {"status" : "OK", "parameters" : [], "current_trial" : self.current_trial, "arm_names_in_call" : arm_names_in_call}
+                if self.is_ddo:
+                    self.use_case_runner.write_x_to_xlsx(xx, self.current_arm+1)
+                    arm_names_in_call.append(self.current_arm+1)
+                    self.current_arm +=1
+            return {"status" : "OK", "parameters" : [], "current_trial" : self.current_trial, "arm_names_in_call" : arm_names_in_call}
+        except Exception as e:
+            print(e)
+            logger.error(e)
+            self.terminate()
+            print("going to exit")
+            sys.exit()
+            return None
         
     def save_experiment_json(self):
         fi = self.use_case_runner.format_feature_importance(self.feature_importances)

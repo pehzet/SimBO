@@ -103,7 +103,7 @@ class PfpRunner():
 
             for o in original:
                 if o.get("ID",1) == int(_x.get("name",-1)):
-                    o["Quantity"] = _x.get("value")
+                    o["Quantity"] = _x.get("value") + 1
         if path is None:
             # path = r'C:\Users\pzmijews\Documents\Studium\Projekt\Simio\Simio_ProductionModel_MRethmann\ModelData'
             path = r'C:\SimioModels\Simio_ProductionModel_MRethmann\ModelData'
@@ -121,7 +121,7 @@ class PfpRunner():
             for rv in r.values():
                 material_costs = 0
                 for xx in self.x_t:
-                    material_costs += max((xx.get("value")-1),0) * xx.get("costs")
+                    material_costs += max((xx.get("value")),0) * xx.get("costs")
                 c = rv[0] * self.cost_factor + material_costs
 
                 y.append(c)
