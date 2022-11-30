@@ -107,7 +107,7 @@ class TurboRunner(AlgorithmRunner):
         # Standarize Y and normalize Noise as said here: https://botorch.org/api/models.html#botorch.models.gp_regression.SingleTaskGP
         # This performs better. Testet fngp and hsgp / 2022-10-04 PZ
         train_Y = standardize(self.Y) #standardize because botorch says it works better
-        train_Yvar = normalize(self.Yvar,bounds=tensor((min(self.Y).item(), max(self.Y).item())))
+        # train_Yvar = normalize(self.Yvar,bounds=tensor((min(self.Y).item(), max(self.Y).item())))
         #likelihood = GaussianLikelihood(noise_constraint=Interval(1e-8, 1e-3))
         covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
         MaternKernel(nu=2.5, ard_num_dims=self.dim, lengthscale_constraint=Interval(0.005, 4.0))
@@ -115,16 +115,16 @@ class TurboRunner(AlgorithmRunner):
         # NOTE: Check if standardize Y and Yvar perform better. stdardize = (Y-Y.mean)/Y.std
 
 
-        if self.sm in ["hsgp", "hsstgp"]:
-            # NOTE: Its not possible to pass a covar module to the HSGP. So maybe we should use fixed Noise here to keep the lengthscale priors.
-            # I will take a look at it at the time /PZM 2022-10-04
-            # https://github.com/pytorch/botorch/issues/180
-            model = HeteroskedasticSingleTaskGP(self.X, train_Y, train_Yvar=train_Yvar)
-        # model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar)
-        elif self.sm in ["fngp", "fgp"]:
-            model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar, covar_module=covar_module)
-        else:
-            model = SingleTaskGP(self.X, self.Y, covar_module=covar_module)
+        # if self.sm in ["hsgp", "hsstgp"]:
+        #     # NOTE: Its not possible to pass a covar module to the HSGP. So maybe we should use fixed Noise here to keep the lengthscale priors.
+        #     # I will take a look at it at the time /PZM 2022-10-04
+        #     # https://github.com/pytorch/botorch/issues/180
+        #     model = HeteroskedasticSingleTaskGP(self.X, train_Y, train_Yvar=train_Yvar)
+        # # model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar)
+        # elif self.sm in ["fngp", "fgp"]:
+        #     model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar, covar_module=covar_module)
+        # else:
+        model = SingleTaskGP(self.X, self.Y, covar_module=covar_module)
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
 
         with gpytorch.settings.max_cholesky_size(float("inf")):
