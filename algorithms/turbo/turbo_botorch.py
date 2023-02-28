@@ -27,6 +27,7 @@ from pathlib import Path
 
 from algorithms.AlgorithmRunner import AlgorithmRunner
 
+# TODO: Add constraints with ConstrainedMaxPosteriorSampling like at https://botorch.org/tutorials/scalable_constrained_bo
 
 
 @dataclass

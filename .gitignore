@@ -31,3 +31,5 @@ costs.csv
 use_cases/mrp/costs.csv
 use_cases/mrp/mrp_sim_new_calc.py
 main_backup.py
+*.xlsx
+*.csv

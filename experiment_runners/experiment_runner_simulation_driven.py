@@ -43,7 +43,7 @@ from flask import Flask, Request, Response, jsonify
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
 
 from icecream import ic
-
+from experiment_runner import ExperimentRunner
 class EndpointAction(object):
     def __init__(self, function):
         self.function = function
@@ -69,7 +69,7 @@ class EndpointAction(object):
 class FlaskWrapper(object):
     app = None
 
-    def __init__(self, name):
+    def __init__(self, name) -> None:
         self.app = Flask(name) # static_url_path='', static_folder='web'
         self.app.config["DEBUG"] = False
 
@@ -82,35 +82,9 @@ class FlaskWrapper(object):
 
 
 
-class ExperimentRunnerSimulationDriven:
+class ExperimentRunnerSimulationDriven(ExperimentRunner):
     def __init__(self, experiment_id, replication):
-        self.experiment_id = experiment_id
-        self.replication = replication
-        self.algorithm = None
-        self.minimize = True # get from config later
-
-        self.total_duration_seconds = None
-        self.experiment_start_dts = None
-        self.experiment_end_dts = None
-        self.trial_runtimes_second = list()
-        self.eval_runtimes_second = list()
-      
-        self.feature_importances = list()
-        self.candidates = list()
-        self.best_candidat = None
-
-        self.first_log_done = False
-        
-        self.current_candidat = 0
-        self.current_trial = 0
-        self.current_arm = 0
-        self.current_x = None
-        self.current_y = None
-        self.config = self.get_experiment_config()
-        self.use_case_runner = self.get_use_case_runner(self.config.get("use_case_config"))
-        self.algorithm_runner = self.get_algorithm_runner(self.config.get("algorithm_config"), len(self.use_case_runner.param_meta), self.use_case_runner.constraints)
-        self.algorithm_runner.minimize = self.minimize
-        self.is_ddo = True
+        super().__init__(experiment_id, replication)
         self.init_flask()
 
 
@@ -240,7 +214,7 @@ class ExperimentRunnerSimulationDriven:
             self.terminate()
             print("going to exit")
             sys.exit()
-            return None
+  
         
     def save_experiment_json(self):
         fi = self.use_case_runner.format_feature_importance(self.feature_importances)

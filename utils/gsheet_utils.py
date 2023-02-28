@@ -20,7 +20,12 @@ def read_gsheet(sheet_id, sheet_name):
         sys.exit()
 
     return file
-
+def get_experiment_runner_type(experiment_id):
+    fpath = "configs/config" + str() +".json"
+    with open(fpath, 'r') as file:
+        config = json.load(file)
+    
+    return config.get("experiment_runner_type")
 
 def formatDF(file):
     f = file.to_dict('records')
@@ -40,7 +45,8 @@ def get_configs_from_gsheet(from_main=False):
     for c in configs:
         obj = dict()
         experiment_id = c.get("experiment_id")
-        obj["experiment_id"] = c.get("experiment_id")
+        obj["experiment_id"] = experiment_id
+        obj["experiment_runner_type"] = c.get("experiment_runner_type")
         obj["algorithm_config"] = {}
         obj["use_case_config"] = {}
 
