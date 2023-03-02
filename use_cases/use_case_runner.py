@@ -27,13 +27,14 @@ class UseCaseRunner():
         self.Y_raw = list()
         self.sheet_id = None
         self.use_case_id = None
+        self.objectives = self.get_objectives_from_config()
 
     def get_param_informations_from_sheet(self):
         sheet_name = "parameters"
-        if sheet_id == "env":
-            sheet_id = os.getenv("SHEET_ID")
+        if self.sheet_id == "env":
+            self.sheet_id = os.getenv("SHEET_ID")
         param_meta = []
-        raws = formatDF(read_gsheet(sheet_id, sheet_name))
+        raws = formatDF(read_gsheet(self.sheet_id, sheet_name))
 
 
         for r in raws: 
@@ -69,7 +70,9 @@ class UseCaseRunner():
         self.resp_meta = resp_meta
         return resp_meta
 
-
+    def get_objectives_from_config():
+        # not implemented yet
+        return None
     def get_mean_and_sem_from_y(self, y_raw):
         data = list()
 
@@ -155,9 +158,6 @@ class UseCaseRunner():
             fi_dict = dict((k,v) for k,v in zip(pm_name, _fi))
             fi_per_trial.append(fi_dict)
         return fi_per_trial
-
-
-
 
 
     def eval(self):

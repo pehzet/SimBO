@@ -42,8 +42,8 @@ tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"
 from icecream import ic
 class ExperimentRunner():
 
-    def __init__(self, experiment_id, replication) -> None:
-        self.experiment_id = experiment_id
+    def __init__(self, experiment, replication) -> None:
+        self.experiment_id = experiment.get("experiment_id")
         self.replication = replication
         self.algorithm = None
         self.minimize = True # get from config later
@@ -65,9 +65,9 @@ class ExperimentRunner():
         self.current_arm = 0
         self.current_x = None
         self.current_y = None
-        self.config = self.get_experiment_config()
+        self.config = experiment
         self.use_case_runner = self.get_use_case_runner(self.config.get("use_case_config"))
-        self.algorithm_runner = self.get_algorithm_runner(self.config.get("algorithm_config"), len(self.use_case_runner.param_meta), self.use_case_runner.constraints)
+        self.algorithm_runner = self.get_algorithm_runner(self.config.get("algorithm_config"), len(self.use_case_runner.param_meta), self.use_case_runner.constraints, self.use_case_runner.objectives)
         self.algorithm_runner.minimize = self.minimize
     
     def get_experiment_config(self):
@@ -78,7 +78,9 @@ class ExperimentRunner():
         logger.info(f"Configuration for experiment >{self.experiment_id}< successfully loaded.")
         return config
 
-    def get_algorithm_runner(self, algorithm_config:dict, dim : int, constraints: list):
+    def get_algorithm_runner(self, algorithm_config:dict, dim : int, constraints: list, objectives:list):
+        self.is_moo = True if len(objectives) > 1 else False
+        
         self.algorithm = algorithm_config.get("strategy", algorithm_config.get("algorithm")).lower()
         self.eval_budget = algorithm_config.get("evaluation_budget")
     

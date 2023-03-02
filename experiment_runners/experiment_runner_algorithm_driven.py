@@ -45,8 +45,8 @@ from icecream import ic
 
 
 class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
-    def __init__(self, experiment_id, replication):
-        super().__init__(experiment_id, replication)
+    def __init__(self, experiment, replication):
+        super().__init__(experiment, replication)
 
     def log_x_and_y(self,x,y):
 

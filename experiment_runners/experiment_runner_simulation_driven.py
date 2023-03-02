@@ -83,8 +83,8 @@ class FlaskWrapper(object):
 
 
 class ExperimentRunnerSimulationDriven(ExperimentRunner):
-    def __init__(self, experiment_id, replication):
-        super().__init__(experiment_id, replication)
+    def __init__(self, experiment, replication):
+        super().__init__(experiment, replication)
         self.init_flask()
 
 
@@ -137,11 +137,11 @@ class ExperimentRunnerSimulationDriven(ExperimentRunner):
 
             return BruteForceRunner(self.experiment_id, self.replication, dim, batch_size=1, bounds = self.use_case_runner.bounds, num_init=1,device=tkwargs["device"], dtype=tkwargs["dtype"])
     
-    def get_use_case_runner(self, use_case_config : dict):
-        if use_case_config.get("use_case").lower() == "mrp":
-            return MRPRunner(use_case_config.get("bom_id"), use_case_config.get("num_sim_runs"), use_case_config.get("stochastic_method"))
-        if use_case_config.get("use_case").lower() == "pfp":
-            return PfpRunner()
+    # def get_use_case_runner(self, use_case_config : dict):
+    #     if use_case_config.get("use_case").lower() == "mrp":
+    #         return MRPRunner(use_case_config.get("bom_id"), use_case_config.get("num_sim_runs"), use_case_config.get("stochastic_method"))
+    #     if use_case_config.get("use_case").lower() == "pfp":
+    #         return PfpRunner()
 
      
 
