@@ -42,6 +42,7 @@ def get_configs_from_gsheet(from_main=False):
     sheet_id = os.getenv("SHEET_ID")
     configs = read_gsheet(sheet_id, "experiments")
     configs = configs.to_dict('records')
+    config_objects = []
     for c in configs:
         obj = dict()
         experiment_id = c.get("experiment_id")
@@ -64,9 +65,11 @@ def get_configs_from_gsheet(from_main=False):
             fpath = os.path.join("configs",("config" + str(experiment_id) + ".json")).replace("\\","/")
         else:
             fpath = os.path.join(os.pardir, "configs",("config" + str(experiment_id) + ".json")).replace("\\","/")
+        config_objects.append(obj)
         with open(fpath, "w+") as fo:
             json.dump(obj, fo)
         print(f"Saved Config{experiment_id} to path: {fpath}")
+        return config_objects
 
 if __name__ == '__main__':
     get_configs_from_gsheet()

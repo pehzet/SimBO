@@ -9,3 +9,4 @@ numpy
 cma
 icecream
 openpyxl
+firebase-admin

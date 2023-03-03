@@ -8,6 +8,7 @@ from icecream import ic
 import json
 import sys
 import multiprocessing as mp
+from database import Database
 from ..experiment_runners.experiment_runner_algorithm_driven import ExperimentRunnerAlgorithmDriven
 from ..experiment_runners.experiment_runner_simulation_driven import ExperimentRunnerSimulationDriven
 print("Number of processors: ", mp.cpu_count())
@@ -19,7 +20,8 @@ class ExperimentManager:
         self.experiments_done = []
         self.experiments_failed = []
         self.experiments_aborted = []
-        self.db = self.init_firestore()
+        self.database = Database()
+        self.db = self.database.db
         self.last_check = None
         self.should_listen = True
         self.date_format = "%Y-%m-%d %H:%M:%S"
@@ -57,10 +59,7 @@ class ExperimentManager:
     def break_experiment_listener(self):
         self.should_listen = False
 
-    def init_firestore(self):
-        cred = credentials.Certificate('C:\code\SimBO\simbo-bf62e-firebase-adminsdk-atif6-cbeac3a8e4.json')
-        app = firebase_admin.initialize_app(cred)
-        return firestore.client()
+
 
     def add_experiment_to_queue(self,experiment):
         if not experiment in self.experiments_queue:

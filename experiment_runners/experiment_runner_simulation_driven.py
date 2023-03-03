@@ -40,6 +40,7 @@ from utils.gsheet_utils import get_configs_from_gsheet
 import time
 import torch
 from flask import Flask, Request, Response, jsonify
+from multiprocessing import Process
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
 
 from icecream import ic
@@ -71,6 +72,7 @@ class FlaskWrapper(object):
 
     def __init__(self, name) -> None:
         self.app = Flask(name) # static_url_path='', static_folder='web'
+        
         self.app.config["DEBUG"] = False
 
     def run(self):
@@ -79,7 +81,11 @@ class FlaskWrapper(object):
     def add_endpoint(self, endpoint=None, endpoint_name=None, function=None):
         self.app.add_url_rule(endpoint, endpoint_name, EndpointAction(function), methods = ["GET", "POST"], provide_automatic_options=True)
 
-
+    def shutdown(self):
+        func = request.environ.get('werkzeug.server.shutdown')
+        if func is None:
+            raise RuntimeError('Not running with the Werkzeug Server')
+        func()
 
 
 class ExperimentRunnerSimulationDriven(ExperimentRunner):
@@ -216,35 +222,35 @@ class ExperimentRunnerSimulationDriven(ExperimentRunner):
             sys.exit()
   
         
-    def save_experiment_json(self):
-        fi = self.use_case_runner.format_feature_importance(self.feature_importances)
+    # def save_experiment_json(self):
+    #     fi = self.use_case_runner.format_feature_importance(self.feature_importances)
 
-        obj = {
-            "experiment_id": self.experiment_id,
-            "replication" : self.replication,
-            "algorithm" : self.algorithm,
-            "bom_id" :  -1, #self.bom_id,
-            "num_trials" : self.current_trial,
-            "num_candidates" : len(self.candidates),
-            "total_duration_seconds": self.total_duration_seconds,
-            "experiment_start" : self.experiment_start_dts,
-            "experiment_end" : self.experiment_end_dts,
-            "trial_runtimes" : self.trial_runtimes_second if self.algorithm != "brute_force" else "na",
-            "eval_runtimes" : self.eval_runtimes_second if self.algorithm != "brute_force" else "na",
-            "best_candidate" : self.best_candidat,
-            "candidates": self.candidates if self.algorithm != "brute_force" else "na",
-            "final_feature_importances" : fi[-1] if fi != "na" else "na",
-            "feature_importances" : fi if self.algorithm != "brute_force" else "na"
-        }
-        ffolder = "data/" + "experiment_" + str(self.experiment_id)
-        fpath = ffolder +"/" + "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json"
+    #     obj = {
+    #         "experiment_id": self.experiment_id,
+    #         "replication" : self.replication,
+    #         "algorithm" : self.algorithm,
+    #         "bom_id" :  -1, #self.bom_id,
+    #         "num_trials" : self.current_trial,
+    #         "num_candidates" : len(self.candidates),
+    #         "total_duration_seconds": self.total_duration_seconds,
+    #         "experiment_start" : self.experiment_start_dts,
+    #         "experiment_end" : self.experiment_end_dts,
+    #         "trial_runtimes" : self.trial_runtimes_second if self.algorithm != "brute_force" else "na",
+    #         "eval_runtimes" : self.eval_runtimes_second if self.algorithm != "brute_force" else "na",
+    #         "best_candidate" : self.best_candidat,
+    #         "candidates": self.candidates if self.algorithm != "brute_force" else "na",
+    #         "final_feature_importances" : fi[-1] if fi != "na" else "na",
+    #         "feature_importances" : fi if self.algorithm != "brute_force" else "na"
+    #     }
+    #     ffolder = "data/" + "experiment_" + str(self.experiment_id)
+    #     fpath = ffolder +"/" + "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json"
 
-        if not os.path.exists(ffolder):
-            Path(ffolder).mkdir(parents=True, exist_ok=True)
-        with open(fpath, 'w+') as fo:
-            json.dump(obj, fo)
-        logger.info(f"Experiment data saved to >{fpath}<")
-
+    #     if not os.path.exists(ffolder):
+    #         Path(ffolder).mkdir(parents=True, exist_ok=True)
+    #     with open(fpath, 'w+') as fo:
+    #         json.dump(obj, fo)
+    #     logger.info(f"Experiment data saved to >{fpath}<")
+    #     return obj
 
     def complete(self):
         req:dict = request.get_json()
@@ -269,7 +275,7 @@ class ExperimentRunnerSimulationDriven(ExperimentRunner):
         self.feature_importances = self.algorithm_runner.get_feature_importance(all=True)
         
         self.algorithm_runner.terminate_experiment()
-        self.save_experiment_json()
+        results = self.save_experiment_json()
         return {"status" : "OK"}
 
     def init_flask(self,port=5000):
@@ -280,6 +286,7 @@ class ExperimentRunnerSimulationDriven(ExperimentRunner):
         self.app.add_endpoint("/terminate","terminate", self.terminate)
         # self.app.run(port=port)
         self.app.run()
+
     
     
 
