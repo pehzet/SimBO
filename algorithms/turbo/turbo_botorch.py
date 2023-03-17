@@ -25,7 +25,7 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from pathlib import Path
 
 
-from algorithms.AlgorithmRunner import AlgorithmRunner
+from algorithms.optimization_algorithm_bridge import OptimizationAlgorithmBridge
 
 # TODO: Add constraints with ConstrainedMaxPosteriorSampling like at https://botorch.org/tutorials/scalable_constrained_bo
 
@@ -73,7 +73,7 @@ class TurboState():
         return self
 
 @dataclass
-class TurboRunner(AlgorithmRunner):
+class TurboRunner(OptimizationAlgorithmBridge):
 
     def __init__(self, experiment_id, replication, dim, trial_size, constraints, num_init, device, dtype, sm="fngp"):
         super().__init__(experiment_id,  replication, dim, trial_size, constraints, num_init, device, dtype)

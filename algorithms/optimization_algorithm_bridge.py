@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from icecream import ic
 from torch import tensor
 @dataclass
-class AlgorithmRunner:
+class OptimizationAlgorithmBridge:
 
     def __init__(self, experiment_id, replication, dim, trial_size, constraints, num_init=-1, device="cpu", dtype=torch.double) -> None:
         self.experiment_id = experiment_id
@@ -52,6 +52,7 @@ class AlgorithmRunner:
     def suggest_initial(self):
         self.is_init = True
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=0)
+
         self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
         logger.debug(f"Initial SOBOL candidates: {self.X_next}")
         return self.X_next 

@@ -44,7 +44,7 @@ from multiprocessing import Process
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
 
 from icecream import ic
-from experiment_runner import ExperimentRunner
+from .experiment_runner import ExperimentRunner
 class EndpointAction(object):
     def __init__(self, function):
         self.function = function

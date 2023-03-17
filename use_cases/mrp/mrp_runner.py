@@ -39,9 +39,12 @@ class MRPRunner():
         self.X = list()
         self.Y_raw = list()
         self.constraints = self.create_constraints()
+        self.objectives = self.create_objectives()
 
 
-    def create_constraints():
+    def create_objectives(self):
+        return [{"name":"costs"}, {"name" : "sl"}]
+    def create_constraints(self):
         return None
     def eval(self, x, ):
         x = self.transform_x(x)
@@ -136,6 +139,7 @@ class MRPRunner():
         if isinstance(data, DataFrame):
             data = data.to_dict('records')
         ids = []
+
         for b in self.bom:
             for k,v in b.items():
                 if k == 'child_id' or k == 'parent_id':
@@ -173,8 +177,10 @@ class MRPRunner():
     def init_sheets(self):
         sheet_id = os.getenv("SHEET_ID")
         self.bom = [b for b in formatDF(read_gsheet(sheet_id, "bom")) if b["bom_id"] == int(self.bom_id)]
-
+        if len(self.bom) == 0:
+            raise Exception("No BOM with this ID found")
         self.materials = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "materials")))
+
         self.orders = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "orders")), filter_by_id=True)
         self.stock = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "stock")))
         logger.info("Sheets initialized")

@@ -1,10 +1,10 @@
 from torch.quasirandom import SobolEngine
 import torch
-from algorithms.AlgorithmRunner import AlgorithmRunner
+from algorithms.optimization_algorithm_bridge import OptimizationAlgorithmBridge
 import logging
 import types
 logger = logging.getLogger("sobol")
-class SobolRunner(AlgorithmRunner):
+class SobolRunner(OptimizationAlgorithmBridge):
 
     def __init__(self, experiment_id, replication, dim, batch_size, num_init=-1, device="cpu", dtype=torch.double) -> None:
         super().__init__(experiment_id, replication, dim, batch_size, num_init, device, dtype)

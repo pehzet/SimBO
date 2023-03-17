@@ -33,3 +33,4 @@ use_cases/mrp/mrp_sim_new_calc.py
 main_backup.py
 *.xlsx
 *.csv
+trash

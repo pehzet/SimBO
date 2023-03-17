@@ -4,19 +4,34 @@ from firebase_admin import firestore
 from firebase_admin import storage
 import sys
 sys.path.insert(1, 'C:/code/SimBO/utils')
-import gsheet_utils 
+import utils.gsheet_utils as gsheet_utils
 import os
 import json
-from icecream import ic
+import logging
+logger = logging.getLogger("database")
 class Database:
-    def __init__(self):
+    def __init__(self, main_dir):
+        self.main_dir = main_dir
+        self.fb_key_name = 'simbo-bf62e-firebase-adminsdk-atif6-cbeac3a8e4.json'
         self.app = self.init_firebase()
         self.db = self.init_firestore()
         self.bucket = self.init_storage()
 
+    def set_experiment_status(self, experiment_id, status, with_id = False):
+        if status not in ["running", "done", "failed", "aborted"]:
+            logger.error(f"Status {status} not recognized. Experiment {experiment_id} not updated.")
+            raise Exception(f"Status {status} not recognized. Experiment {experiment_id} not updated.")
 
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
+        if not with_id:
+             doc_ref.update({u'status': status})
+        else:
+            doc_ref.update({u'status': status, experiment_id : experiment_id})
+
+           
     def init_firebase(self):
-        cred = credentials.Certificate('C:\code\SimBO\simbo-bf62e-firebase-adminsdk-atif6-cbeac3a8e4.json')
+        credit_path = os.path.join(self.main_dir,self.fb_key_name)
+        cred = credentials.Certificate(credit_path)
         return firebase_admin.initialize_app(cred, {
             'storageBucket': 'simbo-bf62e.appspot.com'
         })
@@ -39,13 +54,14 @@ class Database:
             return None
 
     def read_local_config(self):
-        with open('C:\code\SimBO\manager\config.json') as json_file:
+        fpath = os.path.join(self.main_dir,'manager','config.json')
+        with open(fpath) as json_file:
             data = json.load(json_file)
             return data
 
     def get_configs_from_gsheet_and_save(self, fb=True, local=True):
         configs = gsheet_utils.get_configs_from_gsheet()
-        dir_path = r'C:\code\SimBO\configs'
+        dir_path = os.path.join(self.main_dir,'configs')
 
         for config in configs:
             if local:
@@ -65,15 +81,18 @@ class Database:
                 results = json.load(outfile)
 
         replication = "Replication_" + str(replication)
-        doc_ref = self.db.collection(u'experiments').document(str(experiment_id)).collection("results").document(replication)
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id)).collection(u"results").document(replication)
+        from icecream import ic
+        ic(doc_ref)
         try:
             doc_ref.set(results)
+            logger.info(f"Results written to firestore for experiment {experiment_id} replication {replication}")
         except Exception as e:
-            print(e)
-            print("Error writing results to firestore")
+            logger.error(e)
+            logger.error(f"Error writing results to firestore for experiment {experiment_id} replication {replication}")
 
     def write_file_to_storage(self,experiment_id, replication, obj_name, obj_suffix="pkl"):
-        dir_path = r'C:\code\SimBO\data'
+        dir_path = os.path.join(self.main_dir,'data')
         exp_path = "experiment_" +str(experiment_id)
         fname = str(experiment_id)+"_" + str(obj_name) + "_" + str(replication) + "." + str(obj_suffix)
         fpath = os.path.join(dir_path, exp_path, fname)

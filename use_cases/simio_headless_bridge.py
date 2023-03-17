@@ -1,4 +1,4 @@
-from use_case_runner import UseCaseRunner
+from simulation_model_bridge import SimulationModelBridge
 import torch
 import paramiko
 from scp import SCPClient
@@ -10,7 +10,7 @@ def create_ssh_client(server, port, user, password):
     client.connect(server, port, user, password)
     return client
 
-class SimioHeadlessRunner(UseCaseRunner):
+class SimioHeadlessBridge(SimulationModelBridge):
 
     def __init__(self) -> None:
         super().__init__()

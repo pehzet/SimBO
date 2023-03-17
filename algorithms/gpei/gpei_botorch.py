@@ -13,9 +13,9 @@ from botorch.acquisition.monte_carlo import qExpectedImprovement, qNoisyExpected
 from botorch.acquisition import UpperConfidenceBound
 
 from botorch.utils.transforms import unnormalize, normalize, standardize
-from algorithms.AlgorithmRunner import AlgorithmRunner
+from algorithms.optimization_algorithm_bridge import OptimizationAlgorithmBridge
 from icecream import ic
-class GPEIRunner(AlgorithmRunner):
+class GPEIRunner(OptimizationAlgorithmBridge):
     def __init__(self, experiment_id,  replication, dim, batch_size, constraints, num_init, device, dtype, sm= "hsgp"):
         super().__init__(experiment_id, replication, dim, batch_size, constraints, num_init, device, dtype)
 

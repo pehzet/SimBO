@@ -1,4 +1,4 @@
-from algorithms.AlgorithmRunner import AlgorithmRunner
+from algorithms.optimization_algorithm_bridge import OptimizationAlgorithmBridge
 import logging
 from torch import tensor
 from itertools import product
@@ -7,7 +7,7 @@ import numpy as np
 from icecream import ic
 import sys
 from botorch.utils.transforms import unnormalize, normalize
-class BruteForceRunner(AlgorithmRunner):
+class BruteForceRunner(OptimizationAlgorithmBridge):
     def __init__(self, experiment_id, replication, dim, batch_size, bounds, num_init=-1, device="cpu", dtype=...) -> None:
         super().__init__(experiment_id, replication, dim, batch_size, num_init, device, dtype)
         self.bounds = bounds

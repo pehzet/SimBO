@@ -38,7 +38,7 @@ from use_cases.mrp.mrp_runner import MRPRunner
 from utils.gsheet_utils import get_configs_from_gsheet
 import time
 import torch
-from experiment_runner import ExperimentRunner
+from .experiment_runner import ExperimentRunner
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
 
 from icecream import ic
@@ -222,5 +222,6 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
         self.feature_importances = self.algorithm_runner.get_feature_importance(all=True)
         
         self.algorithm_runner.terminate_experiment()
-        self.save_experiment_json()
+        results = self.save_experiment_json()
+        return results
 

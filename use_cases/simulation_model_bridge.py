@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from botorch.utils.transforms import unnormalize, normalize
 from icecream import ic
-class UseCaseRunner():
+class SimulationModelBridge():
 
     def __init__(self) -> None:
         self.X = list()

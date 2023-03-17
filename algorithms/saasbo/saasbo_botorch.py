@@ -11,10 +11,10 @@ from botorch.optim import optimize_acqf
 from botorch.utils.transforms import unnormalize, normalize
 from torch.quasirandom import SobolEngine
 
-from algorithms.AlgorithmRunner import AlgorithmRunner
+from algorithms.optimization_algorithm_bridge import OptimizationAlgorithmBridge
 from icecream import ic
 
-class SaasboRunner(AlgorithmRunner):
+class SaasboRunner(OptimizationAlgorithmBridge):
     def __init__(self, experiment_id,  replication, dim, num_init, batch_size,constraints, warmup_steps,num_samples,thinning, device, dtype):
         super().__init__(experiment_id, replication, dim, batch_size, constraints, num_init, device, dtype)
         self.sm = "saasgp" # TODO: make configuable later
@@ -31,7 +31,6 @@ class SaasboRunner(AlgorithmRunner):
         # gp = SaasFullyBayesianSingleTaskGP(
         #     train_X=self.X, train_Y=self.Y, train_Yvar=torch.full_like(self.Y, 1e-6), outcome_transform=Standardize(m=1)
         # )
-
         model = SaasFullyBayesianSingleTaskGP(
             train_X=self.X, train_Y=self.Y, train_Yvar=self.Yvar, outcome_transform=Standardize(m=1)
         )

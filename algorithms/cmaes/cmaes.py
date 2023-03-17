@@ -2,12 +2,12 @@ import cma
 from cma import CMAEvolutionStrategy
 import torch
 import numpy as np
-from algorithms.AlgorithmRunner import AlgorithmRunner
+from algorithms.optimization_algorithm_bridge import OptimizationAlgorithmBridge
 import logging
 logger = logging.getLogger("cmaes")
 from icecream import ic
 
-class CMAESRunner(AlgorithmRunner):
+class CMAESRunner(OptimizationAlgorithmBridge):
     def __init__(self, experiment_id,  replication, dim, batch_size, bounds, sigma0, num_init=-1, device="cpu", dtype=torch.double) -> None:
         super().__init__(experiment_id,  replication, dim, batch_size, num_init, device, dtype)
         self.bounds = self.tensor_to_list(bounds)

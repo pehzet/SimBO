@@ -9,7 +9,7 @@ logging.basicConfig(
     format = '%(asctime)s: %(levelname)s: %(name)s: %(message)s'
     )
 
-logger = logging.getLogger("main")
+logger = logging.getLogger("runner")
 
 # Surpress PyTorch warning
 warnings.filterwarnings("ignore", message="To copy construct from a tensor, it is") 
@@ -66,8 +66,9 @@ class ExperimentRunner():
         self.current_x = None
         self.current_y = None
         self.config = experiment
-        self.use_case_runner = self.get_use_case_runner(self.config.get("use_case_config"))
-        self.algorithm_runner = self.get_algorithm_runner(self.config.get("algorithm_config"), len(self.use_case_runner.param_meta), self.use_case_runner.constraints, self.use_case_runner.objectives)
+    
+        self.use_case_runner = self.get_use_case_runner()
+        self.algorithm_runner = self.get_algorithm_runner()
         self.algorithm_runner.minimize = self.minimize
     
     def get_experiment_config(self):
@@ -78,40 +79,45 @@ class ExperimentRunner():
         logger.info(f"Configuration for experiment >{self.experiment_id}< successfully loaded.")
         return config
 
-    def get_algorithm_runner(self, algorithm_config:dict, dim : int, constraints: list, objectives:list):
+    def get_algorithm_runner(self):
+        algorithm_config = self.config.get("algorithm_config")
+        dim = len(self.use_case_runner.param_meta) 
+    
+        constraints = self.use_case_runner.constraints 
+        objectives = self.use_case_runner.objectives
         self.is_moo = True if len(objectives) > 1 else False
         
         self.algorithm = algorithm_config.get("strategy", algorithm_config.get("algorithm")).lower()
-        self.eval_budget = algorithm_config.get("evaluation_budget")
-    
-        
+        self.eval_budget = int(self.config.get("budget", self.config.get("evaluation_budget")))
+        # num_init = algorithm_config.get("n_init", algorithm_config.get("num_init", algorithm_config.get("init_arms", 1)))
+        num_init = int(self.config.get("init_arms", 1))
+        batch_size = self.config.get("batch_size")
         if self.algorithm == "turbo":
-            num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
-            batch_size = algorithm_config.get("batch_size")
+
+    
             self.num_trials = algorithm_config.get("num_trials")
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default", "nan", NaN] else "fngp"
             return TurboRunner(self.experiment_id, self.replication, dim,batch_size,constraints, num_init=num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "gpei":
-            num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
-            batch_size = algorithm_config.get("batch_size")
+
             self.num_trials = algorithm_config.get("num_trials")
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default","nan", NaN] else "hsgp"
             return GPEIRunner(self.experiment_id, self.replication, dim,batch_size, constraints, num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "saasbo":
-            self.num_trials = algorithm_config.get("num_trials")
+
             warmup_steps = algorithm_config.get("warmup_steps", 512)
             num_samples = algorithm_config.get("num_samples", 256)
             thinning = algorithm_config.get("thinning", 16)
-            batch_size = algorithm_config.get("batch_size")
-            num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
+
+
             return SaasboRunner(self.experiment_id, self.replication, dim, num_init=num_init, batch_size=batch_size, constraints=constraints, warmup_steps=warmup_steps,num_samples=num_samples, thinning=thinning, device=tkwargs["device"], dtype=tkwargs["dtype"])
         
         if self.algorithm == "cmaes":
-            batch_size = algorithm_config.get("batch_size")
+            
             sigma0 = algorithm_config.get("sigma0", 0.5)
-            num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
+
             return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0,num_init, device=tkwargs["device"], dtype=tkwargs["dtype"])
         
         if self.algorithm == "sobol":
@@ -121,7 +127,8 @@ class ExperimentRunner():
 
             return BruteForceRunner(self.experiment_id, self.replication, dim, batch_size=1, bounds = self.use_case_runner.bounds, num_init=1,device=tkwargs["device"], dtype=tkwargs["dtype"])
     
-    def get_use_case_runner(self, use_case_config : dict):
+    def get_use_case_runner(self):
+        use_case_config = self.config.get("use_case_config")
         if use_case_config.get("use_case").lower() == "mrp":
             return MRPRunner(use_case_config.get("bom_id"), use_case_config.get("num_sim_runs"), use_case_config.get("stochastic_method"))
         if use_case_config.get("use_case").lower() == "pfp":
@@ -154,3 +161,5 @@ class ExperimentRunner():
         with open(fpath, 'w+') as fo:
             json.dump(obj, fo)
         logger.info(f"Experiment data saved to >{fpath}<")
+        self.results = obj
+        return obj
