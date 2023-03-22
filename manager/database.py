@@ -83,13 +83,13 @@ class Database:
         replication = "Replication_" + str(replication)
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id)).collection(u"results").document(replication)
         from icecream import ic
-        ic(doc_ref)
+      
         try:
             doc_ref.set(results)
-            logger.info(f"Results written to firestore for experiment {experiment_id} replication {replication}")
+            logger.info(f"Results written to firestore for experiment {experiment_id} {replication}")
         except Exception as e:
             logger.error(e)
-            logger.error(f"Error writing results to firestore for experiment {experiment_id} replication {replication}")
+            logger.error(f"Error writing results to firestore for experiment {experiment_id} {replication}")
 
     def write_file_to_storage(self,experiment_id, replication, obj_name, obj_suffix="pkl"):
         dir_path = os.path.join(self.main_dir,'data')
@@ -102,6 +102,15 @@ class Database:
         except Exception as e:
             print(e)
             print(f"Error writing {obj_name} pickle to storage")
+        
+    def write_all_files_to_storage(self, exp_id):
+        folder_name = "experiment_" + str(exp_id)
+        folder = os.path.join(self.main_dir, 'manager', 'data', folder_name)
+        for file in os.listdir(folder):
+            blob = self.bucket.blob(folder_name + "/" + file)
+            if not blob.exists():
+                blob.upload_from_filename(os.path.join(folder, file))
+
 def get_all_files_from_folder():
     # folder path
 

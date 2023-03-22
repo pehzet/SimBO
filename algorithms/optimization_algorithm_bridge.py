@@ -41,6 +41,7 @@ class OptimizationAlgorithmBridge:
         self.constraints = self.constraints_to_tensor(constraints)
         self.lengthscales = None
         self.is_init = True
+      
     
     def constraints_to_tensor(self, constraints):
         if constraints is not None:

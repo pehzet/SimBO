@@ -45,13 +45,15 @@ class ExperimentManager:
         self.database = Database(self.main_dir)
         self.last_check = None
         self.should_listen = True
-
+        self.processes = []
+        self.pool = mp.Pool(processes=6)
         self.date_format = "%Y-%m-%d %H:%M:%S"
         logger.info("Manager initialized.")
         
     
     def run_experiment(self,experiment:dict):
         exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
+        exp_id = experiment.get("experiment_id")
         logger.info("Running experiment: " + str(exp_name))
         logger.info("Execution time is: " + str(experiment.get("execution_datetime")))
         # start_random_loop()
@@ -60,7 +62,7 @@ class ExperimentManager:
             runner_type = experiment.get("runner_type")
             replication = 1
             while replication <= int(experiment.get("replications")):
-                logger.info(f"Replication {replication} of experiment {exp_name} started")
+                logger.info(f"Replication {replication} of experiment {exp_name} (ID: {exp_id})  started")
                 # Here we should use multiprocessing
                 if runner_type == "simulation":
                     ExperimentRunnerSimulationDriven(experiment, replication)
@@ -68,24 +70,27 @@ class ExperimentManager:
                 elif runner_type == "algorithm":
                     results = ExperimentRunnerAlgorithmDriven(experiment, replication).run_optimization_loop()
                 else:
-                    logger.error(f"Runner Type of experiment {exp_name} not identified. Maybe typo at gsheet. Going to exit")
+                    logger.error(f"Runner Type of experiment {exp_name} (ID: {exp_id}) not identified. Maybe typo at gsheet. Going to exit")
                     sys.exit()
                 try:
-                    self.database.write_result_to_firestore(experiment.get("experiment_id",999),replication,results)
+                    self.database.write_result_to_firestore(exp_id,replication,results)
+                    self.database.write_all_files_to_storage(exp_id)
                 except Exception as e:
-                    logger.error(f"Error while writing results of experiment {exp_name} to Firestore")
+                    logger.error(f"Error while writing results of experiment {exp_name} (ID: {exp_id}) to Firestore")
                     logger.error(e)
                     sys.exit()
                 replication += 1
-            logger.info(f"Experiment finished: {exp_name}")
-            try:
-                self.database.set_experiment_status(experiment.get("experiment_id"), "done")
-            except Exception as e:
-                logger.error(f"Error while setting experiment {exp_name} to status 'done'")
+      
             self.experiments_done.append(experiment)
             self.experiments_running.remove(experiment)
+            logger.info(f"Experiment finished: {exp_name} (ID: {exp_id}) ")
+            try:
+                self.database.set_experiment_status(exp_id, "done")
+            except Exception as e:
+                logger.error(f"Error while setting experiment {exp_name} (ID: {exp_id})  to status 'done'")
+            return
         except Exception as e:
-            logger.error(f"Error while running experiment {exp_name}")
+            logger.error(f"Error while running experiment {exp_name} (ID: {exp_id}) ")
             logger.error(e)
             self.experiments_failed.append(experiment)
             self.experiments_running.remove(experiment)
@@ -94,7 +99,12 @@ class ExperimentManager:
         
 
     def save_experiment_as_json(self,experiment):
-        with open(self.main_dir + '\manager\experiments\experiment_' + str(experiment.get("experiment_name", experiment.get("experiment_id"))) + '.json', 'w') as outfile:
+
+        path = os.path.join(self.main_dir, 'manager', 'data','experiment_' + str(experiment.get("experiment_id")))
+        if not os.path.exists(path):
+            os.makedirs(path)
+        fpath = os.path.join(path, str(experiment.get("experiment_id")) + '.json')
+        with open(fpath, 'w') as outfile:
             json.dump(experiment, outfile)
         
     def break_experiment_listener(self):
@@ -125,20 +135,26 @@ class ExperimentManager:
     def check_experiment_queue(self):
         if len(self.experiments_queue) > 0:
             for experiment in self.experiments_queue:
-                
-
-                if datetime.now().strftime(self.date_format) >= experiment.get("execution_datetime"):
-                    self.experiments_running.append(experiment)                    
-                    self.experiments_queue.remove(experiment)
+                if datetime.now().strftime(self.date_format) >= experiment.get("execution_datetime") and len(self.experiments_running) < 6:
                     try:
                         t = threading.Thread(target=self.run_experiment, args=[experiment])
                         t.daemon = True
                         t.start()
+                        # p = mp.Process(target=self.run_experiment, args=[experiment])
+                        # self.processes.append(p)
+                        
+                        self.experiments_running.append(experiment)                    
+                        self.experiments_queue.remove(experiment)
+                       
                     except Exception as e:
-                        logger.error("Error: unable to start thread")
+                        logger.error("Error: unable to start process to run experiment")
                         logger.error(e)
                         sys.exit()
-                    
+        # if len(self.experiments_running) > 0:
+        #     results = self.pool.map(self.run_experiment, self.experiments_running)
+        #     for result in results:
+        #         print(results)
+        #     self.pool.close()
 
     def start_firestore_listener(self):
         logger.info("Starting Listening to Firestore...")

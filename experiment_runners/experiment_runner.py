@@ -91,7 +91,7 @@ class ExperimentRunner():
         self.eval_budget = int(self.config.get("budget", self.config.get("evaluation_budget")))
         # num_init = algorithm_config.get("n_init", algorithm_config.get("num_init", algorithm_config.get("init_arms", 1)))
         num_init = int(self.config.get("init_arms", 1))
-        batch_size = self.config.get("batch_size")
+        batch_size = int(self.config.get("batch_size"))
         if self.algorithm == "turbo":
 
     
@@ -114,11 +114,11 @@ class ExperimentRunner():
 
             return SaasboRunner(self.experiment_id, self.replication, dim, num_init=num_init, batch_size=batch_size, constraints=constraints, warmup_steps=warmup_steps,num_samples=num_samples, thinning=thinning, device=tkwargs["device"], dtype=tkwargs["dtype"])
         
-        if self.algorithm == "cmaes":
+        if self.algorithm == "cmaes" or self.algorithm == "cma-es":
             
-            sigma0 = algorithm_config.get("sigma0", 0.5)
+            sigma0 = algorithm_config.get("sigma", 0.5)
 
-            return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0,num_init, device=tkwargs["device"], dtype=tkwargs["dtype"])
+            return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0, num_init=num_init)
         
         if self.algorithm == "sobol":
             return SobolRunner(self.experiment_id, self.replication,dim,batch_size=1, num_init=1, device=tkwargs["device"], dtype=tkwargs["dtype"])

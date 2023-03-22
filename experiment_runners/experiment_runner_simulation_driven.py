@@ -12,7 +12,7 @@ logging.basicConfig(
     format = '%(asctime)s: %(levelname)s: %(name)s: %(message)s'
     )
 
-logger = logging.getLogger("main")
+logger = logging.getLogger("simulated_runner")
 
 # Surpress PyTorch warning
 warnings.filterwarnings("ignore", message="To copy construct from a tensor, it is") 

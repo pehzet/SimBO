@@ -8,19 +8,26 @@ logger = logging.getLogger("cmaes")
 from icecream import ic
 
 class CMAESRunner(OptimizationAlgorithmBridge):
-    def __init__(self, experiment_id,  replication, dim, batch_size, bounds, sigma0, num_init=-1, device="cpu", dtype=torch.double) -> None:
-        super().__init__(experiment_id,  replication, dim, batch_size, num_init, device, dtype)
+    def __init__(self, experiment_id,  replication, dim, batch_size, bounds, sigma0,  num_init=-1, device="cpu", dtype=torch.double) -> None:
+
+        constraints = None
+        super().__init__(experiment_id,  replication, dim, batch_size, constraints,num_init, device, dtype)
+   
         self.bounds = self.tensor_to_list(bounds)
-        self.sigma0 = sigma0 if sigma0 != -1 else 0.5 #0.5 is default in tutorial https://pypi.org/project/cma/
+        self.sigma0 = float(sigma0) if sigma0 != -1 else 0.5 #0.5 is default in tutorial https://pypi.org/project/cma/
         self.X_next_l = None
         opts = cma.CMAOptions()
         self.X = list()
         self.Y = list()
+        if self.trial_size <= 1:
+            logger.info(f"trial_size {self.trial_size} is too small, setting to 2")
+            self.trial_size = 2
         opts.set('bounds', self.bounds)
         opts.set('popsize', self.trial_size)
         opts.set('seed', 12345)
         # NOTE: lt. Link oben benötigt cmaes 100xdim candidates für befriedigende Ergebnisse
         self.es = cma.CMAEvolutionStrategy(self.dim*[0], sigma0=self.sigma0,inopts=opts)
+
     def tensor_to_list(self,t):
         if torch.is_tensor(t):
             t = t.tolist()
@@ -40,7 +47,7 @@ class CMAESRunner(OptimizationAlgorithmBridge):
         return xx
 
     def complete(self,yy, yvar=None):
-
+ 
         
         self.X.append(self.X_next)
         #self.es.logger.add()
