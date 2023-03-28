@@ -34,3 +34,4 @@ main_backup.py
 *.xlsx
 *.csv
 trash
+manager_mp.py

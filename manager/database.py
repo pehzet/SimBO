@@ -110,7 +110,7 @@ class Database:
             blob = self.bucket.blob(folder_name + "/" + file)
             if not blob.exists():
                 blob.upload_from_filename(os.path.join(folder, file))
-
+        logger.info(f"Files for experiment {exp_id} written to storage")
 def get_all_files_from_folder():
     # folder path
 
@@ -120,18 +120,12 @@ def get_all_files_from_folder():
 
     # Iterate directory
     for folder in os.listdir(dir_path):
-
         # check if current path is a file
         pathes = os.path.join(dir_path, folder)
-     
         for path in os.listdir(pathes):
-           
             if os.path.isfile(os.path.join(pathes, path)):
-          
                 if path.endswith(".json"):
-                 
                     with open(os.path.join(pathes, path)) as json_file:
                         data = json.load(json_file)
-              
                         db.write_result_to_firestore(data.get("experiment_id"), 1, data)
 

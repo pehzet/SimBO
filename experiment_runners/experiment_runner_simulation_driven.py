@@ -1,12 +1,12 @@
 # Main File for Cluster Experiments
 
 # Logging and warnings
-from genericpath import isfile
+
 import warnings
 import logging
-from numpy import NaN
+
 from flask import request
-from sqlalchemy import false
+
 logging.basicConfig(
     level = logging.INFO,
     format = '%(asctime)s: %(levelname)s: %(name)s: %(message)s'
@@ -22,21 +22,13 @@ warnings.filterwarnings("ignore", message="torch.triangular_solve is deprecated"
 
 import sys
 import json
-import csv
-import os
-import pandas as pd
-from pathlib import Path
-from datetime import datetime
-from algorithms.turbo.turbo_botorch import TurboRunner
-from algorithms.saasbo.saasbo_botorch import SaasboRunner
-from algorithms.gpei.gpei_botorch import GPEIRunner
-from algorithms.cmaes.cmaes import CMAESRunner
-from algorithms.sobol.sobol_botorch import SobolRunner
-from algorithms.brute_force.brute_force import BruteForceRunner
-from use_cases.mrp.mrp_runner import MRPRunner
-from use_cases.pfp.pfp_runner import PfpRunner
 
-from utils.gsheet_utils import get_configs_from_gsheet
+import pandas as pd
+
+from datetime import datetime
+
+
+
 import time
 import torch
 from flask import Flask, Request, Response, jsonify
@@ -102,56 +94,8 @@ class ExperimentRunnerSimulationDriven(ExperimentRunner):
         logger.info(f"Configuration for experiment >{self.experiment_id}< successfully loaded.")
         return config
 
-    def get_algorithm_runner(self, algorithm_config:dict, dim : int, constraints: list):
-        self.algorithm = algorithm_config.get("strategy", algorithm_config.get("algorithm")).lower()
-        self.eval_budget = algorithm_config.get("evaluation_budget")
-    
-        
-        if self.algorithm == "turbo":
-            num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
-            batch_size = algorithm_config.get("batch_size")
-            self.num_trials = algorithm_config.get("num_trials")
-            sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default", "nan", NaN] else "fngp"
-            return TurboRunner(self.experiment_id, self.replication, dim,batch_size,constraints, num_init=num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
-        
-        if self.algorithm == "gpei":
-            num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
-            batch_size = algorithm_config.get("batch_size")
-            self.num_trials = algorithm_config.get("num_trials")
-            sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default","nan", NaN] else "hsgp"
-            return GPEIRunner(self.experiment_id, self.replication, dim,batch_size, constraints, num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
-        
-        if self.algorithm == "saasbo":
-            self.num_trials = algorithm_config.get("num_trials")
-            warmup_steps = algorithm_config.get("warmup_steps", 512)
-            num_samples = algorithm_config.get("num_samples", 256)
-            thinning = algorithm_config.get("thinning", 16)
-            batch_size = algorithm_config.get("batch_size")
-            num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
-            return SaasboRunner(self.experiment_id, self.replication, dim, num_init=num_init, batch_size=batch_size, constraints=constraints, warmup_steps=warmup_steps,num_samples=num_samples, thinning=thinning, device=tkwargs["device"], dtype=tkwargs["dtype"])
-        
-        if self.algorithm == "cmaes":
-            batch_size = algorithm_config.get("batch_size")
-            sigma0 = algorithm_config.get("sigma0", 0.5)
-            num_init = algorithm_config.get("n_init", algorithm_config.get("num_init"))
-            return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0,num_init, device=tkwargs["device"], dtype=tkwargs["dtype"])
-        
-        if self.algorithm == "sobol":
-            return SobolRunner(self.experiment_id, self.replication,dim,batch_size=1, num_init=1, device=tkwargs["device"], dtype=tkwargs["dtype"])
-        
-        if self.algorithm in ["brute_force", "bruteforce"]:
-
-            return BruteForceRunner(self.experiment_id, self.replication, dim, batch_size=1, bounds = self.use_case_runner.bounds, num_init=1,device=tkwargs["device"], dtype=tkwargs["dtype"])
-    
-    # def get_use_case_runner(self, use_case_config : dict):
-    #     if use_case_config.get("use_case").lower() == "mrp":
-    #         return MRPRunner(use_case_config.get("bom_id"), use_case_config.get("num_sim_runs"), use_case_config.get("stochastic_method"))
-    #     if use_case_config.get("use_case").lower() == "pfp":
-    #         return PfpRunner()
-
-     
-
    
+
 
     
     def append_candidate_to_candidates_list(self, xx,yy):

@@ -46,7 +46,7 @@ class ExperimentManager:
         self.last_check = None
         self.should_listen = True
         self.processes = []
-        self.pool = mp.Pool(processes=6)
+
         self.date_format = "%Y-%m-%d %H:%M:%S"
         logger.info("Manager initialized.")
         
@@ -140,8 +140,7 @@ class ExperimentManager:
                         t = threading.Thread(target=self.run_experiment, args=[experiment])
                         t.daemon = True
                         t.start()
-                        # p = mp.Process(target=self.run_experiment, args=[experiment])
-                        # self.processes.append(p)
+
                         
                         self.experiments_running.append(experiment)                    
                         self.experiments_queue.remove(experiment)
@@ -150,11 +149,7 @@ class ExperimentManager:
                         logger.error("Error: unable to start process to run experiment")
                         logger.error(e)
                         sys.exit()
-        # if len(self.experiments_running) > 0:
-        #     results = self.pool.map(self.run_experiment, self.experiments_running)
-        #     for result in results:
-        #         print(results)
-        #     self.pool.close()
+
 
     def start_firestore_listener(self):
         logger.info("Starting Listening to Firestore...")

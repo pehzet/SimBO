@@ -12,7 +12,7 @@ from pandas import DataFrame
 from utils.gsheet_utils import read_gsheet, formatDF
 from torch import tensor
 from use_cases.mrp.mrp_solver import MRPSolver
-from use_cases.mrp.mrp_sim import MRPSimulation, init_mrp_sim
+from use_cases.mrp.mrp_sim import MRPSimulation, init_mrp_sim, g
 import os
 import torch
 import numpy as np
@@ -35,7 +35,7 @@ class MRPRunner():
         self.minimize = True
         self.param_meta = self.get_param_meta_from_materials()
         self.bounds = self.get_bounds_from_param_meta()
-        init_mrp_sim(self.bom, self.materials, self.orders)
+        # init_mrp_sim(self.bom, self.materials, self.orders)
         self.X = list()
         self.Y_raw = list()
         self.constraints = self.create_constraints()
@@ -52,7 +52,7 @@ class MRPRunner():
         self.X.append(x)
         releases = self.run_solver(x)
         for _ in range(self.num_sim_runs):
-            result = MRPSimulation(releases, stochastic_method = self.stochastic_method).run_simulation()
+            result = MRPSimulation(releases, self.materials, self.bom, self.orders, stochastic_method = self.stochastic_method).run_simulation(sim_time=200)
             self.Y_raw.append(result)
         y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_sim_runs:])
   

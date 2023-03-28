@@ -33,7 +33,6 @@ from algorithms.brute_force.brute_force import BruteForceRunner
 from use_cases.mrp.mrp_runner import MRPRunner
 from use_cases.pfp.pfp_runner import PfpRunner
 
-from utils.gsheet_utils import get_configs_from_gsheet
 
 import torch
 
@@ -100,18 +99,14 @@ class ExperimentRunner():
             return TurboRunner(self.experiment_id, self.replication, dim,batch_size,constraints, num_init=num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "gpei":
-
             self.num_trials = algorithm_config.get("num_trials")
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default","nan", NaN] else "hsgp"
             return GPEIRunner(self.experiment_id, self.replication, dim,batch_size, constraints, num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "saasbo":
-
             warmup_steps = algorithm_config.get("warmup_steps", 512)
             num_samples = algorithm_config.get("num_samples", 256)
             thinning = algorithm_config.get("thinning", 16)
-
-
             return SaasboRunner(self.experiment_id, self.replication, dim, num_init=num_init, batch_size=batch_size, constraints=constraints, warmup_steps=warmup_steps,num_samples=num_samples, thinning=thinning, device=tkwargs["device"], dtype=tkwargs["dtype"])
         
         if self.algorithm == "cmaes" or self.algorithm == "cma-es":

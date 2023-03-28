@@ -82,15 +82,15 @@ class Child():
         self.quantity = quantity
         self.quantity_per_unit = quantity_per_unit
 class MRPSimulation():
-    def __init__(self, releases, stochastic_method="discrete") -> None:
+    def __init__(self, releases, materials, bom, orders, stochastic_method="discrete") -> None:
         self.releases = [Release(r) for r in copy.deepcopy(releases)]
 
         self.costs = []
         self.sl = []
      
-        self.materials = [Material(m) for m in copy.deepcopy(g.materials)]
-        self.bom = copy.deepcopy(g.bom) # no deepcopy required?
-        self.orders = [Order(o) for o in copy.deepcopy(g.orders)]
+        self.materials = [Material(m) for m in copy.deepcopy(materials)]
+        self.bom = copy.deepcopy(bom) # no deepcopy required?
+        self.orders = [Order(o) for o in copy.deepcopy(orders)]
         self.stochastic_method = stochastic_method
         self.storage_costs = 0
         self.penalty_costs = 0
@@ -169,9 +169,9 @@ class MRPSimulation():
         logging.warn("No method for sample quantity reduction selected. Return 0")
         return 0
 
-    def run_simulation(self):
+    def run_simulation(self, sim_time=200):
         # range starts with 1 and ends with sim_time + 1 (from start) + 1(to calc cost of previous period in case of backorder) 
-        for period in range(1, g.sim_time + 20):
+        for period in range(1, sim_time + 20):
 
             # STEP 1: record storage sosts of last period
             self.costs.extend(self.calc_storage_costs_all())
