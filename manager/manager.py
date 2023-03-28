@@ -137,10 +137,10 @@ class ExperimentManager:
             for experiment in self.experiments_queue:
                 if datetime.now().strftime(self.date_format) >= experiment.get("execution_datetime") and len(self.experiments_running) < 6:
                     try:
-                        t = threading.Thread(target=self.run_experiment, args=[experiment])
-                        t.daemon = True
-                        t.start()
-
+                        # t = threading.Thread(target=self.run_experiment, args=[experiment])
+                        # t.daemon = True
+                        # t.start()
+                        self.run_experiment(experiment)
                         
                         self.experiments_running.append(experiment)                    
                         self.experiments_queue.remove(experiment)
