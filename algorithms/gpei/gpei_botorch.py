@@ -31,15 +31,15 @@ class GPEIRunner(OptimizationAlgorithmBridge):
         train_Y = standardize(self.Y) #standardize because botorch says it works better
 
        
-        if self.sm in ["hsgp", "hsstgp"]:
+        if self.sm in ["hsgp", "hsstgp", 'heteroskedastic GP']:
             train_Yvar = normalize(self.Yvar,bounds=tensor((min(self.Y).item(), max(self.Y).item())))
             model = HeteroskedasticSingleTaskGP(self.X, train_Y, train_Yvar=train_Yvar)
         # model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar)
-        elif self.sm in ["fngp", "fgp"]:
+        elif self.sm in ["fngp", "fgp","fixed noise GP"]:
             train_Yvar = normalize(self.Yvar,bounds=tensor((min(self.Y).item(), max(self.Y).item())))
             model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar)
         else:
-            model = SingleTaskGP(self.X, self.Y)
+            model = SingleTaskGP(self.X, train_Y)
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
         fit_gpytorch_model(mll=mll)
         self.lengthscales = torch.cat((self.lengthscales, model.covar_module.base_kernel.lengthscale), dim=0) if not self.lengthscales == None else model.covar_module.base_kernel.lengthscale 
