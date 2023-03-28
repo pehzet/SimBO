@@ -141,10 +141,11 @@ class ExperimentManager:
                         # t = threading.Thread(target=self.run_experiment, args=[experiment])
                         # t.daemon = True
                         # t.start()
-                        self.run_experiment(experiment)
-                        
                         self.experiments_running.append(experiment)                    
                         self.experiments_queue.remove(experiment)
+                        self.run_experiment(experiment)
+                        
+
                        
                     except Exception as e:
                         logger.error("Error: unable to start process to run experiment")
