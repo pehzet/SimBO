@@ -135,7 +135,8 @@ class ExperimentManager:
     def check_experiment_queue(self):
         if len(self.experiments_queue) > 0:
             for experiment in self.experiments_queue:
-                if datetime.now().strftime(self.date_format) >= experiment.get("execution_datetime") and len(self.experiments_running) < 6:
+                # if datetime.now().strftime(self.date_format) >= experiment.get("execution_datetime") and len(self.experiments_running) < 6:
+                if len(self.experiments_running) < 6:
                     try:
                         # t = threading.Thread(target=self.run_experiment, args=[experiment])
                         # t.daemon = True
