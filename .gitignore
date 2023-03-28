@@ -35,3 +35,4 @@ main_backup.py
 *.csv
 trash
 manager_mp.py
+config.py

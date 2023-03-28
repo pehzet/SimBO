@@ -8,11 +8,13 @@ import utils.gsheet_utils as gsheet_utils
 import os
 import json
 import logging
+import config
+config.FIREBASE_CONFIG
 logger = logging.getLogger("database")
 class Database:
     def __init__(self, main_dir):
         self.main_dir = main_dir
-        self.fb_key_name = 'simbo-bf62e-firebase-adminsdk-atif6-cbeac3a8e4.json'
+        self.fb_key_name = config.FIREBASE_CONFIG
         self.app = self.init_firebase()
         self.db = self.init_firestore()
         self.bucket = self.init_storage()

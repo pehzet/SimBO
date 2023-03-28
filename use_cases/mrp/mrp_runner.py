@@ -6,7 +6,7 @@ import logging
 
 
 logger = logging.getLogger("mrp")
-
+import config
 # from main import run_solver
 from pandas import DataFrame
 from utils.gsheet_utils import read_gsheet, formatDF
@@ -17,8 +17,6 @@ import os
 import torch
 import numpy as np
 import traceback
-from dotenv import load_dotenv
-load_dotenv()
 from botorch.utils.transforms import unnormalize, normalize
 from icecream import ic
 class MRPRunner():
@@ -31,6 +29,7 @@ class MRPRunner():
         self.materials = None
         self.orders = None
         self.stock = None
+        self.sheet_id = config.SHEET_ID
         self.init_sheets() # to get the variables above
         self.minimize = True
         self.param_meta = self.get_param_meta_from_materials()
@@ -175,14 +174,14 @@ class MRPRunner():
         return write_data_sorted_period
 
     def init_sheets(self):
-        sheet_id = os.getenv("SHEET_ID")
-        self.bom = [b for b in formatDF(read_gsheet(sheet_id, "bom")) if b["bom_id"] == int(self.bom_id)]
+        
+        self.bom = [b for b in formatDF(read_gsheet(self.sheet_id, "bom")) if b["bom_id"] == int(self.bom_id)]
         if len(self.bom) == 0:
             raise Exception("No BOM with this ID found")
-        self.materials = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "materials")))
+        self.materials = self.filter_relevant_materials(formatDF(read_gsheet(self.sheet_id , "materials")))
 
-        self.orders = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "orders")), filter_by_id=True)
-        self.stock = self.filter_relevant_materials(formatDF(read_gsheet(sheet_id, "stock")))
+        self.orders = self.filter_relevant_materials(formatDF(read_gsheet(self.sheet_id , "orders")), filter_by_id=True)
+        self.stock = self.filter_relevant_materials(formatDF(read_gsheet(self.sheet_id , "stock")))
         logger.info("Sheets initialized")
    
 
@@ -244,8 +243,8 @@ class MRPRunner():
                 
 
     def get_param_meta(self):
-        sheet_id = os.getenv("SHEET_ID")
-        bom = formatDF(read_gsheet(sheet_id, "bom"))
+   
+        bom = formatDF(read_gsheet(self.sheet_id , "bom"))
 
         ids = []
         for b in bom:
