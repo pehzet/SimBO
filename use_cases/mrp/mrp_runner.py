@@ -19,6 +19,7 @@ import numpy as np
 import traceback
 from botorch.utils.transforms import unnormalize, normalize
 from icecream import ic
+tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
 class MRPRunner():
 
     def __init__(self, bom_id, num_sim_runs=5, stochastic_method=True):
@@ -95,9 +96,9 @@ class MRPRunner():
         '''
         returns two tensors with mean and sem
         '''
-        y_mean = torch.tensor([y[0][0] for y in y_mrp])
+        y_mean = torch.tensor([y[0][0] for y in y_mrp]).to(tkwargs["device"])
 
-        y_sem = torch.tensor([y[0][1] for y in y_mrp])
+        y_sem = torch.tensor([y[0][1] for y in y_mrp]).to(tkwargs["device"])
         
         #yy = torch.tensor([list(y.values())[0] for y in y_mrp])
         if self.minimize:
@@ -114,7 +115,7 @@ class MRPRunner():
         lb = [pm.get("lower_bound") for pm in self.param_meta]
         ub = [pm.get("upper_bound") for pm in self.param_meta]
         #bounds = [(pm.get("lower_bound",pm.get("bounds")[0]) , pm.get("upper_bound",pm.get("bounds")[1])) for pm in self.param_meta]
-        bounds = torch.tensor([lb, ub])
+        bounds = torch.tensor([lb, ub]).to(tkwargs["device"])
         return bounds
 
     def format_params_for_mrp(self, params):
@@ -283,7 +284,7 @@ class MRPRunner():
             return fi
         pm_name = [pm.get("name") for pm in self.param_meta]
 
-        fi = tensor(fi) 
+        fi = tensor(fi).to(tkwargs.get("device"))
         if fi.ndim == 1:
             fi = fi.tolist()
             return [dict((k,v) for k,v in zip(pm_name, fi))]
