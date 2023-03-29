@@ -11,7 +11,7 @@ from torch import tensor
 @dataclass
 class OptimizationAlgorithmBridge:
 
-    def __init__(self, experiment_id, replication, dim, trial_size, constraints, num_init=-1, device="cpu", dtype=torch.double) -> None:
+    def __init__(self, experiment_id, replication, dim, trial_size, constraints, num_init=-1, device=torch.device('cuda'), dtype=torch.double) -> None:
         self.experiment_id = experiment_id
         self.replication = replication
         self.dim = dim
