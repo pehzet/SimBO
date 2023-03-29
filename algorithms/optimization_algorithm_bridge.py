@@ -53,7 +53,7 @@ class OptimizationAlgorithmBridge:
     def suggest_initial(self):
         self.is_init = True
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=0)
-
+        logger.info(f"Running SOBOL on device: {self.device}")
         self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
         logger.debug(f"Initial SOBOL candidates: {self.X_next}")
         return self.X_next 
