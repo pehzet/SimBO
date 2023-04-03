@@ -81,9 +81,9 @@ class FlaskWrapper(object):
 
 
 class ExperimentRunnerSimulationDriven(ExperimentRunner):
-    def __init__(self, experiment, replication):
-        super().__init__(experiment, replication)
-        self.init_flask()
+    def __init__(self, experiment, replication, tkwargs):
+        super().__init__(experiment, replication, tkwargs)
+        # self.init_flask()
 
 
     def get_experiment_config(self):
@@ -219,7 +219,8 @@ class ExperimentRunnerSimulationDriven(ExperimentRunner):
         self.feature_importances = self.algorithm_runner.get_feature_importance(all=True)
         
         self.algorithm_runner.terminate_experiment()
-        results = self.save_experiment_json()
+        self.results = self.save_experiment_json()
+        self.app.shutdown()
         return {"status" : "OK"}
 
     def init_flask(self,port=5000):
@@ -230,6 +231,8 @@ class ExperimentRunnerSimulationDriven(ExperimentRunner):
         self.app.add_endpoint("/terminate","terminate", self.terminate)
         # self.app.run(port=port)
         self.app.run()
+        
+        return self.results
 
     
     

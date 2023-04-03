@@ -41,9 +41,10 @@ tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"
 from icecream import ic
 class ExperimentRunner():
 
-    def __init__(self, experiment, replication) -> None:
+    def __init__(self, experiment, replication, tkwargs) -> None:
         self.experiment_id = experiment.get("experiment_id")
         self.replication = replication
+        self.tkwargs = tkwargs
         self.algorithm = None
         self.minimize = True # get from config later
 
@@ -96,18 +97,18 @@ class ExperimentRunner():
     
             self.num_trials = algorithm_config.get("num_trials")
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default", "nan", NaN] else "fngp"
-            return TurboRunner(self.experiment_id, self.replication, dim,batch_size,constraints, num_init=num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
+            return TurboRunner(self.experiment_id, self.replication, dim,batch_size,constraints, num_init=num_init, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "gpei":
             self.num_trials = algorithm_config.get("num_trials")
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default","nan", NaN] else "hsgp"
-            return GPEIRunner(self.experiment_id, self.replication, dim,batch_size, constraints, num_init, device=tkwargs["device"], dtype=tkwargs["dtype"],sm=sm)
+            return GPEIRunner(self.experiment_id, self.replication, dim,batch_size, constraints, num_init, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "saasbo":
             warmup_steps = algorithm_config.get("warmup_steps", 512)
             num_samples = algorithm_config.get("num_samples", 256)
             thinning = algorithm_config.get("thinning", 16)
-            return SaasboRunner(self.experiment_id, self.replication, dim, num_init=num_init, batch_size=batch_size, constraints=constraints, warmup_steps=warmup_steps,num_samples=num_samples, thinning=thinning, device=tkwargs["device"], dtype=tkwargs["dtype"])
+            return SaasboRunner(self.experiment_id, self.replication, dim, num_init=num_init, batch_size=batch_size, constraints=constraints, warmup_steps=warmup_steps,num_samples=num_samples, thinning=thinning, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         
         if self.algorithm == "cmaes" or self.algorithm == "cma-es":
             
@@ -116,11 +117,11 @@ class ExperimentRunner():
             return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0, num_init=num_init)
         
         if self.algorithm == "sobol":
-            return SobolRunner(self.experiment_id, self.replication,dim,batch_size=1, num_init=1, device=tkwargs["device"], dtype=tkwargs["dtype"])
+            return SobolRunner(self.experiment_id, self.replication,dim,batch_size=1, num_init=1, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         
         if self.algorithm in ["brute_force", "bruteforce"]:
 
-            return BruteForceRunner(self.experiment_id, self.replication, dim, batch_size=1, bounds = self.use_case_runner.bounds, num_init=1,device=tkwargs["device"], dtype=tkwargs["dtype"])
+            return BruteForceRunner(self.experiment_id, self.replication, dim, batch_size=1, bounds = self.use_case_runner.bounds, num_init=1,device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
     
     def get_use_case_runner(self):
         use_case_config = self.config.get("use_case_config")

@@ -22,7 +22,7 @@ from experiment_runners.experiment_runner_simulation_driven import ExperimentRun
 logger.debug("Number of processors: ", mp.cpu_count())
 from pathlib import Path
 import os
-
+import torch
 
 
 
@@ -36,6 +36,7 @@ warnings.filterwarnings("ignore", message="torch.triangular_solve is deprecated"
 class ExperimentManager:
     def __init__(self, checking_interval=60):
         self.checking_interval = checking_interval
+        self.tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
         self.experiments_queue = []
         self.experiments_running = []
         self.experiments_done = []
@@ -65,10 +66,10 @@ class ExperimentManager:
                 logger.info(f"Replication {replication} of experiment {exp_name} (ID: {exp_id})  started")
                 # Here we should use multiprocessing
                 if runner_type == "simulation":
-                    ExperimentRunnerSimulationDriven(experiment, replication)
+                    ExperimentRunnerSimulationDriven(experiment, replication, self.tkwargs)
                     results = None
                 elif runner_type == "algorithm":
-                    results = ExperimentRunnerAlgorithmDriven(experiment, replication).run_optimization_loop()
+                    results = ExperimentRunnerAlgorithmDriven(experiment, replication, self.tkwargs).run_optimization_loop()
                 else:
                     logger.error(f"Runner Type of experiment {exp_name} (ID: {exp_id}) not identified. Maybe typo at gsheet. Going to exit")
                     sys.exit()

@@ -1,7 +1,6 @@
-import copy
+
 from platform import release
-import sys
-import traceback
+
 import logging
 import itertools
 logger = logging.getLogger("mrpsolver")

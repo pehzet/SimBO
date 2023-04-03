@@ -73,25 +73,30 @@ class Database:
             if fb:
                 self.write_experiment_to_firestore(config)
     
-    def write_result_to_firestore(self, experiment_id, replication, results=None):
+    def update_replication_at_firesotre(self, experiment_id, replication):
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
+        doc_ref.update({u'replications_fulfilled': replication})
 
+    def write_result_to_firestore(self, experiment_id, replication, results=None):
+        
         if results == None:
-            dir_path = r'C:\code\SimBO\data'
-            exp_string = "Experiment_"+str(experiment_id)
+            dir_path = r'C:\code\SimBO\manager\data'
+            exp_string = "experiment_"+str(experiment_id)
             result_path = os.path.join(dir_path, exp_string, exp_string+"_" + str(replication)+".json")
-            with open(result_path, "w") as outfile:
+            with open(result_path, "r") as outfile:
                 results = json.load(outfile)
 
-        replication = "Replication_" + str(replication)
-        doc_ref = self.db.collection(u'experiments').document(str(experiment_id)).collection(u"results").document(replication)
-        from icecream import ic
+        replication_str = "Replication_" + str(replication)
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id)).collection(u"results").document(replication_str)
+        
       
         try:
             doc_ref.set(results)
-            logger.info(f"Results written to firestore for experiment {experiment_id} {replication}")
+            logger.info(f"Results written to firestore for experiment {experiment_id} Replication: {replication}")
         except Exception as e:
             logger.error(e)
-            logger.error(f"Error writing results to firestore for experiment {experiment_id} {replication}")
+            logger.error(f"Error writing results to firestore for experiment {experiment_id} Replication: {replication}")
+        self.update_replication_at_firesotre(experiment_id, replication)
 
     def write_file_to_storage(self,experiment_id, replication, obj_name, obj_suffix="pkl"):
         dir_path = os.path.join(self.main_dir,'data')

@@ -9,14 +9,14 @@ import json
 import datetime
 logger = logging.getLogger("mrpsim")
 
-class g:
-    pass
+# class g:
+#     pass
 
-def init_mrp_sim(bom, materials, orders, sim_time=200):
-    g.bom = bom 
-    g.materials = materials
-    g.orders = orders
-    g.sim_time = sim_time
+# def init_mrp_sim(bom, materials, orders, sim_time=200):
+#     g.bom = bom 
+#     g.materials = materials
+#     g.orders = orders
+#     g.sim_time = sim_time
 
  
 
@@ -274,7 +274,7 @@ class MRPSimulation():
                 else:
                     logging.error("Error at Order Fulfillment. Let order pass.")
 
-
+ 
         assert len(self.sl) > 0
         _all_penalty_costs = sum([sum(m.penalty_costs_list) for m in self.materials])
         self.write_costs_csv(int(sum(self.costs)), self.storage_costs, _all_penalty_costs, sum(self.sl)/len(self.sl))

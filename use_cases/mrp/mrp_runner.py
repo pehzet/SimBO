@@ -12,7 +12,7 @@ from pandas import DataFrame
 from utils.gsheet_utils import read_gsheet, formatDF
 from torch import tensor
 from use_cases.mrp.mrp_solver import MRPSolver
-from use_cases.mrp.mrp_sim import MRPSimulation, init_mrp_sim, g
+from use_cases.mrp.mrp_sim import MRPSimulation
 import os
 import torch
 import numpy as np
@@ -52,7 +52,9 @@ class MRPRunner():
         self.X.append(x)
         releases = self.run_solver(x)
         for _ in range(self.num_sim_runs):
+      
             result = MRPSimulation(releases, self.materials, self.bom, self.orders, stochastic_method = self.stochastic_method).run_simulation(sim_time=200)
+
             self.Y_raw.append(result)
         y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_sim_runs:])
   
@@ -180,7 +182,6 @@ class MRPRunner():
         if len(self.bom) == 0:
             raise Exception("No BOM with this ID found")
         self.materials = self.filter_relevant_materials(formatDF(read_gsheet(self.sheet_id , "materials")))
-
         self.orders = self.filter_relevant_materials(formatDF(read_gsheet(self.sheet_id , "orders")), filter_by_id=True)
         self.stock = self.filter_relevant_materials(formatDF(read_gsheet(self.sheet_id , "stock")))
         logger.info("Sheets initialized")
