@@ -83,8 +83,12 @@ class Database:
             dir_path = r'C:\code\SimBO\manager\data'
             exp_string = "experiment_"+str(experiment_id)
             result_path = os.path.join(dir_path, exp_string, exp_string+"_" + str(replication)+".json")
-            with open(result_path, "r") as outfile:
-                results = json.load(outfile)
+            try:
+                with open(result_path, "r") as outfile:
+                    results = json.load(outfile)
+            except Exception as e:
+                logger.error(e)
+                logger.error(f"File has not been created yet for experiment {experiment_id} Replication: {replication}")
 
         replication_str = "Replication_" + str(replication)
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id)).collection(u"results").document(replication_str)

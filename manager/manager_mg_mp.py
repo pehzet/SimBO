@@ -3,7 +3,10 @@
 # import multiprocessing_on_dill as mp
 # import multiprocessing as mp
 import torch.multiprocessing as mp
-mp.set_start_method('spawn')
+try:
+   mp.set_start_method('spawn', force=True)
+except RuntimeError:
+   pass
 # import pathos as mp
 import os
 import sys
