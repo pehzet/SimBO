@@ -86,7 +86,7 @@ class ExperimentManager:
         self.number_of_gpus = torch.cuda.device_count()
 
         # for debug:
-        self.number_of_gpus = 2
+        self.number_of_gpus = 1
         self.available_gpus = Queue()
 
         for i in range(self.number_of_gpus):
