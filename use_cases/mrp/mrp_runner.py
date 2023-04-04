@@ -184,6 +184,9 @@ class MRPRunner():
         self.materials = self.filter_relevant_materials(formatDF(read_gsheet(self.sheet_id , "materials")))
         self.orders = self.filter_relevant_materials(formatDF(read_gsheet(self.sheet_id , "orders")), filter_by_id=True)
         self.stock = self.filter_relevant_materials(formatDF(read_gsheet(self.sheet_id , "stock")))
+
+        assert len(self.materials) > 0
+        assert len(self.orders) > 0
         logger.info("Sheets initialized")
    
 
