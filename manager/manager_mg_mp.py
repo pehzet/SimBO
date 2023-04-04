@@ -1,7 +1,9 @@
 
 
 # import multiprocessing_on_dill as mp
-import multiprocessing as mp
+# import multiprocessing as mp
+import torch.multiprocessing as mp
+mp.set_start_method('spawn')
 # import pathos as mp
 import os
 import sys
