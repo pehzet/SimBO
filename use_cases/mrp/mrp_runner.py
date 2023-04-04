@@ -148,7 +148,7 @@ class MRPRunner():
                     if int(v) not in ids:
                         ids.append(int(v))
         if filter_by_id == True:
-            data = [d for d in data if int(d["id"]) in ids and d.get("bom_id") == self.bom_id]
+            data = [d for d in data if int(d["id"]) in ids and int(d.get("bom_id")) == int(self.bom_id)]
         else:
             data = [d for d in data if int(d["id"]) in ids]
 
