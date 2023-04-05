@@ -55,7 +55,8 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
     for i in range(deviceCount):
         # handle = nvmlDeviceGetHandleByIndex(i)
         handle = nvmlDeviceGetMigDeviceHandleByIndex(nvmlDeviceGetHandleByIndex(0), 0)
-        logger.info(nvmlDeviceGetUUID(handle))
+        logger.info(f"Running on MIG: {nvmlDeviceGetUUID(handle)}")
+        logger.info(f"CUDA Device: {torch.cuda.current_device()}")
     exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
     exp_id = experiment.get("experiment_id")
     results = None
