@@ -7,8 +7,9 @@ try:
    mp.set_start_method('spawn', force=True)
 except RuntimeError:
    pass
-# import pathos as mp
 import os
+from pynvml import *
+
 import sys
 sys.path.append('../')
 from experiment_runners.experiment_runner_simulation_driven import ExperimentRunnerSimulationDriven
@@ -47,6 +48,11 @@ warnings.filterwarnings(
 all_results = []
 def send_experiment_to_runner(experiment, replication, tkwargs):
     os.environ["CUDA_VISIBLE_DEVICES"] = tkwargs.get("UUID", "0")
+    nvmlInit()
+    deviceCount = nvmlDeviceGetCount()
+    for i in range(deviceCount):
+        handle = nvmlDeviceGetHandleByIndex(i)
+        logger.info(nvmlDeviceGetUUID(handle))
     exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
     exp_id = experiment.get("experiment_id")
     results = None
