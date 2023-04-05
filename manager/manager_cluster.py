@@ -48,6 +48,7 @@ warnings.filterwarnings(
 all_results = []
 def send_experiment_to_runner(experiment, replication, tkwargs):
     os.environ["CUDA_VISIBLE_DEVICES"] = tkwargs.get("UUID", "0")
+    torch.cuda.set_device(tkwargs.get("device_idx", 0))
     nvmlInit()    
     deviceCount = nvmlDeviceGetCount()
     for i in range(deviceCount):
@@ -97,8 +98,8 @@ class ExperimentManager:
         # self.number_of_gpus = 7
         self.available_gpus = Queue()
         uuids = ["MIG-aeca6767-99c9-5fb8-b956-723bcb25d82b", "MIG-aae631f3-f7ad-5d35-b717-ccb9ba0b92f9", "MIG-c5f6bdea-5751-5327-bdce-7086947edd84", "MIG-07510fb0-c5df-56b5-bbc2-1d94286e3553", "UUID: MIG-32191766-a3ca-5c44-bddd-d0dc6d33acbd", "MIG-4839a599-f156-51e4-a526-4592d46b179d", "MIG-4839a599-f156-51e4-a526-4592d46b179d"]
-        for uuid in uuids:
-            self.available_gpus.put({"UUID": uuid})
+        for i, uuid in enumerate(uuids):
+            self.available_gpus.put({"UUID": uuid, "device_idx" : i})
 
         self.used_gpus = Queue()
 
@@ -229,7 +230,8 @@ class ExperimentManager:
             try:
                 experiment_to_run = self.experiments_queue.get()
                 gpu = self.available_gpus.get()
-                tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": self.dtype, "UUID":gpu.get("UUID")}
+                device_idx = gpu.get("device_idx")
+                tkwargs = {"device": torch.device(f"cuda:{device_idx}" if torch.cuda.is_available() else "cpu"), "dtype": self.dtype, "UUID":gpu.get("UUID"), "device_idx" : device_idx}
                 # logger.info("Starting experiment with ID: " + str(experiment_to_run.get("experiment_id")) + " and name: " + str(experiment_to_run.get("experiment_name")) + " at " + str(datetime.now()) + "on: " + str(gpu))
                 logger.info("Execution time is: " + str(experiment_to_run.get("execution_datetime")))
                 self.run_experimentation_process(experiment_to_run, tkwargs, gpu)
