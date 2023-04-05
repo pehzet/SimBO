@@ -48,9 +48,7 @@ warnings.filterwarnings(
 all_results = []
 def send_experiment_to_runner(experiment, replication, tkwargs):
     os.environ["CUDA_VISIBLE_DEVICES"] = tkwargs.get("UUID", "0")
-    nvmlInit()
-    nvmlDeviceSetMigMode(nvmlDeviceGetHandleByIndex(0), 1)
-    
+    nvmlInit()    
     deviceCount = nvmlDeviceGetCount()
     for i in range(deviceCount):
         # handle = nvmlDeviceGetHandleByIndex(i)
