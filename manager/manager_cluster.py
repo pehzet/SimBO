@@ -49,9 +49,12 @@ all_results = []
 def send_experiment_to_runner(experiment, replication, tkwargs):
     os.environ["CUDA_VISIBLE_DEVICES"] = tkwargs.get("UUID", "0")
     nvmlInit()
+    nvmlDeviceSetMigMode(nvmlDeviceGetHandleByIndex(0), 1)
+    
     deviceCount = nvmlDeviceGetCount()
     for i in range(deviceCount):
-        handle = nvmlDeviceGetHandleByIndex(i)
+        # handle = nvmlDeviceGetHandleByIndex(i)
+        handle = nvmlDeviceGetMigDeviceHandleByIndex(nvmlDeviceGetHandleByIndex(0), 0)
         logger.info(nvmlDeviceGetUUID(handle))
     exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
     exp_id = experiment.get("experiment_id")
