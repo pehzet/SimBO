@@ -251,7 +251,9 @@ class ExperimentManager:
             col_query = self.database.db.collection(u'experiments').where(u'status', u'==', u'open').where(u'manager_id', u'==', self.manager_id)
         # TODO: make handler for failed experiments
         query_watch = col_query.on_snapshot(check_changes)
-
+        self.logger.info("Checking initially for new experiments to run...")
+        self.check_experiment_queue()
+        time.sleep(5)
         while self.should_listen:
             self.logger.info("Checking for finished experiment replications...")
             self.check_processes()
@@ -272,13 +274,13 @@ def log_gpu_usage():
         logger.addHandler(fh)
         device = torch.device("cuda")
         while True:
-            logger.info("GPU usage (MB): " + str(torch.cuda.memory_allocated(device)/1024/1024))
-            logger.info("GPU max usage (MB): " + str(torch.cuda.max_memory_allocated(device)/1024/1024))
+            logger.info("GPU usage: " + str(torch.cuda.memory_allocated()))
+            logger.info("GPU max usage: " + str(torch.cuda.max_memory_allocated()))
             time.sleep(1)
 
 if __name__ == "__main__":
 
     manager_id = int(sys.argv[1])
     interval = int(sys.argv[2])
-    mp.Process(target=log_gpu_usage).start()
+    mp.Process(target=log_gpu_usage).start() # doesnt work with WIP TODO: fix
     ExperimentManager(manager_id, interval).start_firestore_listener()
