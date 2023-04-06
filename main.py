@@ -10,7 +10,7 @@ logging.basicConfig(
     format = '%(asctime)s: %(levelname)s: %(name)s: %(message)s'
     )
 
-logger = logging.getLogger("main")
+self.logger = logging.getLogger("main")
 
 # Surpress PyTorch warning
 warnings.filterwarnings("ignore", message="To copy construct from a tensor, it is") 
@@ -32,7 +32,7 @@ from icecream import ic
 
 def check_sysargs():
     if "load" in sys.argv:
-        logger.info("Argument 'load' found. Getting info from Google Spreadsheet.")
+        self.logger.info("Argument 'load' found. Getting info from Google Spreadsheet.")
         get_configs_from_gsheet(from_main=True)
         if len(sys.argv) <= 2 :
             print("No experiment ID detected. Re-loaded only config files. Going to exit")

@@ -5,7 +5,7 @@ import pickle
 import math
 from icecream import ic
 from dataclasses import dataclass
-
+import os
 import torch
 from torch import tensor
 from botorch.acquisition import qExpectedImprovement
@@ -78,7 +78,7 @@ class TurboRunner(OptimizationAlgorithmBridge):
     def __init__(self, experiment_id, replication, dim, trial_size, constraints, num_init, device, dtype, sm="fngp"):
         super().__init__(experiment_id,  replication, dim, trial_size, constraints, num_init, device, dtype)
         self.state = TurboState(dim=self.dim, batch_size=self.trial_size)
-        logger.info(f"Running on device: {self.device} and dtype: {self.dtype}")
+        self.logger.info(f"Running on device: {self.device} and dtype: {self.dtype}")
 
         self.sm = sm 
         self.acqf = "ts" # TODO: make configuable later
@@ -87,7 +87,7 @@ class TurboRunner(OptimizationAlgorithmBridge):
 
 
     def restart_state(self):                
-        logger.info(f"{self.num_restarts}. start of TR triggered")
+        self.logger.info(f"{self.num_restarts}. start of TR triggered")
         self.num_restarts +=1
         self.terminate_experiment()
         self.X_all = torch.cat((self.X_all, self.X), dim=0) if self.X_all is not None else self.X
@@ -103,12 +103,12 @@ class TurboRunner(OptimizationAlgorithmBridge):
         self.is_init = False
         if self.state.restart_triggered:
             self.restart_state()
-            self.X_next = self.suggest_initial()
+            self.X_next = self.suggest_initial(self.num_init/2)
             return self.X_next
         # Standarize Y and normalize Noise as said here: https://botorch.org/api/models.html#botorch.models.gp_regression.SingleTaskGP
         # This performs better. Testet fngp and hsgp / 2022-10-04 PZ
         train_Y = standardize(self.Y) #standardize because botorch says it works better
-        # train_Yvar = normalize(self.Yvar,bounds=tensor((min(self.Y).item(), max(self.Y).item())))
+        train_Yvar = normalize(self.Yvar,bounds=tensor((min(self.Y).item(), max(self.Y).item())))
         #likelihood = GaussianLikelihood(noise_constraint=Interval(1e-8, 1e-3))
         covar_module = ScaleKernel(  # Use the same lengthscale prior as in the TuRBO paper
         MaternKernel(nu=2.5, ard_num_dims=self.dim, lengthscale_constraint=Interval(0.005, 4.0))
@@ -125,7 +125,8 @@ class TurboRunner(OptimizationAlgorithmBridge):
         # elif self.sm in ["fngp", "fgp"]:
         #     model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar, covar_module=covar_module)
         # else:
-        model = SingleTaskGP(self.X, self.Y, covar_module=covar_module)
+        # model = SingleTaskGP(self.X, self.Y, covar_module=covar_module)
+        model = FixedNoiseGP(self.X, train_Y, train_Yvar=train_Yvar, covar_module=covar_module)
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
 
         with gpytorch.settings.max_cholesky_size(float("inf")):
@@ -215,15 +216,16 @@ class TurboRunner(OptimizationAlgorithmBridge):
     def terminate_experiment(self):
         if self.state.restart_triggered:
             best_value = self.state.best_value * -1 if self.minimize else self.state.best_value
-            logger.info(f"Best Value at current State: {best_value:.2f}")
+            self.logger.info(f"Best Value at current State: {best_value:.2f}")
             #print(f"Best Value at current State: {best_value:.2f}")
 
     
         _name_state = "_turbostate_" + str(self.num_restarts +1) + ".pkl"
         _name_runner = "_turborunner_" + str(self.num_restarts +1) + ".pkl"
-        path = f"data/experiment_{self.experiment_id}"
+        # path = f"data/experiment_{self.experiment_id}"
+        path = os.path.join('data', f'experiment_{self.experiment_id}')
         Path(path).mkdir(parents=True, exist_ok=True)
-        with open((path +"/" + str(self.experiment_id) + _name_state), "wb") as fo:
+        with open(os.path.join(path, str(self.experiment_id) + _name_state), "wb") as fo:
             pickle.dump(self.state, fo)
-        with open((path +"/" + str(self.experiment_id) + _name_runner), "wb") as fo:
+        with open(os.path.join(path , str(self.experiment_id) + _name_runner), "wb") as fo:
             pickle.dump(self, fo)      

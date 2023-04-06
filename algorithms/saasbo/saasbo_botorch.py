@@ -23,7 +23,7 @@ class SaasboRunner(OptimizationAlgorithmBridge):
         self.num_samples: int = num_samples
         self.thinning: int = thinning
 
-        logger.info(f"Running on device: {device}")
+        self.logger.info(f"Running on device: {device}")
 
 
     
@@ -55,6 +55,6 @@ class SaasboRunner(OptimizationAlgorithmBridge):
   
         self.acq_values = torch.cat((self.acq_values, acq_values), dim=0) if self.acq_values is not None else acq_values
        
-        logger.debug(f"Next suggested candidate(s) (SAASBO): {self.X_next}")
+        self.logger.debug(f"Next suggested candidate(s) (SAASBO): {self.X_next}")
         return self.X_next
 

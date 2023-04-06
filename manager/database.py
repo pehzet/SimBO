@@ -130,7 +130,7 @@ class Database:
     def update_replication_progress(self, experiment_id, replication, current_arm, budget):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
 
-        doc_ref.update({f'replication_progress.{str(replication)}': f'{str(current_arm)} of {str(budget)}'})
+        doc_ref.update({f'replication_progress.{str(replication)}' : current_arm })
 
 def get_all_files_from_folder():
     # folder path

@@ -21,7 +21,7 @@ class GPEIRunner(OptimizationAlgorithmBridge):
 
         self.sm = sm
         self.acqf = "qEI" # TODO: make configuable later
-        logger.info(f"Running on device: {self.device}")
+        self.logger.info(f"Running on device: {self.device}")
 
 
 
@@ -65,7 +65,7 @@ class GPEIRunner(OptimizationAlgorithmBridge):
         acq_values=torch.unsqueeze(acq_values, dim=0) if acq_values.ndim==0 else acq_values
         self.acq_values = torch.cat((self.acq_values, acq_values), dim=0) if self.acq_values is not None else acq_values
    
-        logger.debug(f"Next suggested candidate(s) (GP/{self.acqf}): {self.X_next}")
+        self.logger.debug(f"Next suggested candidate(s) (GP/{self.acqf}): {self.X_next}")
         return self.X_next
 
 

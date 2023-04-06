@@ -265,12 +265,12 @@ class ExperimentManager:
 def log_gpu_usage():
     if torch.cuda.is_available():
         logger = logging.getLogger("gpu_logger")
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
         fh = logging.FileHandler("gpu_usage.log")
         fh.setLevel(logging.INFO)
         fh.setFormatter(logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s'))
         logger.addHandler(fh)
-        device = torch.device("cuda:0")
+        device = torch.device("cuda")
         while True:
             logger.info("GPU usage (MB): " + str(torch.cuda.memory_allocated(device)/1024/1024))
             logger.info("GPU max usage (MB): " + str(torch.cuda.max_memory_allocated(device)/1024/1024))

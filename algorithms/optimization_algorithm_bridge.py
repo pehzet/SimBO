@@ -1,7 +1,7 @@
 import torch
 import logging
 
-logger = logging.getLogger("algorithm")
+
 from torch.quasirandom import SobolEngine
 from pathlib import Path
 import pickle
@@ -17,7 +17,11 @@ class OptimizationAlgorithmBridge:
         self.dim = dim
         self.num_init = dim * 2 if num_init == -1 else num_init
         self.trial_size = trial_size
-        
+        self.logger = logging.getLogger("algorithm")
+        try:
+            self.logger.addHandler(self.tkwargs["logging_fh"])
+        except:
+            pass
         self.X = None
         self.Y = None
         self.X_next = None
@@ -50,24 +54,27 @@ class OptimizationAlgorithmBridge:
                 _constraints.append((tensor(c[0], dtype=torch.int64), tensor(c[1], dtype=self.dtype), float(c[2])))
             return _constraints
         return None
-    def suggest_initial(self):
+    def suggest_initial(self, num_trials = None):
         self.is_init = True
         sobol = SobolEngine(dimension=self.dim, scramble=True, seed=0)
-        logger.info(f"Running SOBOL on device: {self.device}")
-        self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
-        logger.debug(f"Initial SOBOL candidates: {self.X_next}")
+        self.logger.info(f"Running SOBOL on device: {self.device}")
+        if num_trials == None:
+            self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
+        else:
+            self.X_next = sobol.draw(n=num_trials).to(dtype=self.dtype, device=self.device)
+        self.logger.debug(f"Initial SOBOL candidates: {self.X_next}")
         return self.X_next 
     
     def identity_best_in_trial(self):
         best_in_trial = max(self.Y_next).item() # TODO: Think about general way to handle min and max
         if self.Y_current_best == None:
             self.Y_current_best = best_in_trial
-            logger.info(f"New best Y found: {self.Y_current_best*-1}")
+            self.logger.info(f"New best Y found: {self.Y_current_best*-1}")
         else:
             # is_better = self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial
             if self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial:
                 self.Y_current_best = best_in_trial
-                logger.info(f"New best Y found: {self.Y_current_best*-1 if self.minimize else self.Y_current_best}")
+                self.logger.info(f"New best Y found: {self.Y_current_best*-1 if self.minimize else self.Y_current_best}")
 
     def complete(self, y, yvar = None):
         self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)

@@ -4,15 +4,13 @@
 
 import warnings
 import logging
-from numpy import NaN
 
-from sqlalchemy import false
 logging.basicConfig(
     level = logging.INFO,
     format = '%(asctime)s: %(levelname)s: %(name)s: %(message)s'
     )
 
-logger = logging.getLogger("algorithm_runner")
+# logger = logging.getLogger("algorithm_runner")
 
 # Surpress PyTorch warning
 warnings.filterwarnings("ignore", message="To copy construct from a tensor, it is") 
@@ -97,12 +95,12 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
 
         if self.algorithm_runner.Y_current_best == None:
             self.algorithm_runner.Y_current_best = best_in_trial
-            logger.info(f"New best Y found: {self.algorithm_runner.Y_current_best}")
+            self.logger.info(f"New best Y found: {self.algorithm_runner.Y_current_best}")
         else:
             # is_better = self.Y_current_best < best_in_trial if self.minimize else self.Y_current_best > best_in_trial
             if best_in_trial < self.algorithm_runner.Y_current_best if self.minimize else best_in_trial > self.algorithm_runner.Y_current_best :
                 self.algorithm_runner.Y_current_best = best_in_trial
-                logger.info(f"New best Y found: {self.algorithm_runner.Y_current_best}")
+                self.logger.info(f"New best Y found: {self.algorithm_runner.Y_current_best}")
 
 
     
@@ -132,18 +130,18 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
         for c in self.candidates: 
             ys.append([_y for _y in c.get("y").values()][0])
         best = self.candidates[pd.DataFrame(ys).idxmin()[0]] if self.minimize else self.candidates[pd.DataFrame(ys).idxmax()[0]]
-        logger.info(f"Best candidate found:\n {json.dumps(best, indent=2)}")
+        self.logger.info(f"Best candidate found:\n {json.dumps(best, indent=2)}")
         return best
         
     def run_optimization_loop(self):
-        logger.info(f"Starting optimization run with evaluation budget of >{self.eval_budget}<")
+        self.logger.info(f"Starting optimization run with evaluation budget of >{self.eval_budget}<")
         self.algorithm_runner.eval_budget = self.eval_budget
         _start = time.monotonic()
         self.experiment_start_dts = datetime.now().isoformat()
         _start_trial = time.monotonic()
 
         x = self.algorithm_runner.suggest_initial()
-        logger.info(f"Got >{x.size()[0]}< initial points from algorithm.")
+        self.logger.info(f"Got >{x.size()[0]}< initial points from algorithm.")
         _end_trial = time.monotonic()
         #self.trial_runtimes_second.extend([(_end_trial- _start_trial) for _ in range(len(x))]) # ASKNICOLAS: soll len(trial_runtimes) = len(eval_runtimes) sein, damit es bei der Analyse nachher einfacher ist?
         self.trial_runtimes_second.append(_end_trial- _start_trial)
@@ -156,8 +154,9 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
             _y.append(self.use_case_runner.eval(xx))
             _eval_end_seconds = time.monotonic()
             self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
-            if eval_counter % 100 == 0:
-                logger.info(f"Number evaluations: {eval_counter}")
+            if eval_counter % 10 == 0:
+                self.logger.info(f"Number evaluations: {eval_counter}")
+                self.database.update_replication_progress(self.experiment_id, self.replication, eval_counter, self.eval_budget)
                 if self.algorithm == "brute_force":
                     self.log_x_and_y(x,_y)
 
@@ -170,21 +169,20 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
         self.eval_budget -= len(x)
         self.current_trial +=1
         retries = 0
-        logger.info("Initial Trial completed")
+        self.logger.info("Initial Trial completed")
   
         while self.eval_budget > 0:
             _start_trial = time.monotonic()
             if retries == 5:
-                logger.info("Max Retries reached. Going to Exit Optimization")
+                self.logger.info("Max Retries reached. Going to Exit Optimization")
                 self.algorithm_runner.terminate_experiment()
                 self.save_experiment_json()
                 sys.exit()
             try:
                 x = self.algorithm_runner.suggest()
-                self.log_gpu_usage()
             except BaseException as e:
                 retries += 1
-                logger.info(f"Error at Suggest: {e}. Retry {retries} of 5")
+                self.logger.info(f"Error at Suggest: {e}. Retry {retries} of 5")
                 continue
             assert len(x) > 0
             _y = list()
@@ -195,8 +193,9 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
                 _eval_end_seconds = time.monotonic()
                 self.eval_runtimes_second.append(_eval_end_seconds - _eval_start_seconds)
                 
-                if eval_counter % 100 == 0:
-                    logger.info(f"Number evaluations: {eval_counter}")
+                if eval_counter % 10 == 0:
+                    self.logger.info(f"Number evaluations: {eval_counter}")
+                    self.database.update_replication_progress(self.experiment_id, self.replication, eval_counter, self.eval_budget)
                 eval_counter += 1
 
             self.append_candidate_to_candidates_list(x,_y)
@@ -206,11 +205,11 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
             self.trial_runtimes_second.append((_end_trial- _start_trial))
             self.eval_budget -= len(x)
             self.current_trial +=1
-            logger.info(f"Trial {self.current_trial} with {len(x)} Arms completed")
+            self.logger.info(f"Trial {self.current_trial} with {len(x)} Arms completed")
         _end = time.monotonic()
         self.experiment_end_dts = datetime.now().isoformat()
         self.total_duration_seconds =  _end -_start
-        
+        self.database.update_replication_progress(self.experiment_id, self.replication, eval_counter, self.eval_budget)
         self.best_candidat = self.get_best_candidate()
         self.feature_importances = self.algorithm_runner.get_feature_importance(all=True)
         

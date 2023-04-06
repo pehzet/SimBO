@@ -9,12 +9,13 @@ logging.basicConfig(
     format = '%(asctime)s: %(levelname)s: %(name)s: %(message)s'
     )
 
-logger = logging.getLogger("runner")
+# logger = logging.getLogger("runner")
 
 # Surpress PyTorch warning
 warnings.filterwarnings("ignore", message="To copy construct from a tensor, it is") 
 warnings.filterwarnings("ignore", message="Could not import matplotlib.pyplot")
 warnings.filterwarnings("ignore", message="torch.triangular_solve is deprecated") 
+import sys
 
 
 
@@ -32,7 +33,7 @@ from algorithms.sobol.sobol_botorch import SobolRunner
 from algorithms.brute_force.brute_force import BruteForceRunner
 from use_cases.mrp.mrp_runner import MRPRunner
 from use_cases.pfp.pfp_runner import PfpRunner
-
+from manager.database import Database
 
 import torch
 
@@ -45,6 +46,12 @@ class ExperimentRunner():
         self.experiment_id = experiment.get("experiment_id")
         self.replication = replication
         self.tkwargs = tkwargs
+        self.database = Database()
+        self.logger =logging.getLogger("runner")
+        try:
+            self.logger.addHandler(self.tkwargs["logging_fh"])
+        except:
+            pass
         self.algorithm = None
         self.minimize = True # get from config later
 
@@ -76,7 +83,7 @@ class ExperimentRunner():
         with open(fpath, 'r') as file:
             config = json.load(file)
         
-        logger.info(f"Configuration for experiment >{self.experiment_id}< successfully loaded.")
+        self.logger.info(f"Configuration for experiment >{self.experiment_id}< successfully loaded.")
         return config
 
     def get_algorithm_runner(self):
@@ -145,21 +152,25 @@ class ExperimentRunner():
             "trial_runtimes" : self.trial_runtimes_second if self.algorithm != "brute_force" else "na",
             "eval_runtimes" : self.eval_runtimes_second if self.algorithm != "brute_force" else "na",
             "best_candidate" : self.best_candidat,
+            "raw_results" : self.use_case_runner.Y_raw,
             "candidates": self.candidates if self.algorithm != "brute_force" else "na",
             "final_feature_importances" : fi[-1] if fi != "na" else "na",
             "feature_importances" : fi if self.algorithm != "brute_force" else "na"
         }
-        ffolder = "data/" + "experiment_" + str(self.experiment_id)
-        fpath = ffolder +"/" + "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json"
+        # ffolder = "data/" + "experiment_" + str(self.experiment_id)
+        # fpath = ffolder +"/" + "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json"
+        ffolder = os.path.join("data", "experiment_" + str(self.experiment_id))
+        fpath = os.path.join(ffolder, "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json")
+
 
         if not os.path.exists(ffolder):
             Path(ffolder).mkdir(parents=True, exist_ok=True)
         with open(fpath, 'w+') as fo:
             json.dump(obj, fo)
-        logger.info(f"Experiment data saved to >{fpath}<")
+        self.logger.info(f"Experiment data saved to >{fpath}<")
         self.results = obj
         return obj
     
-    def log_gpu_usage(self):
-        if self.tkwargs["device"] == "cuda":
-            logger.info(f"GPU usage: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} GB")
+    # def log_gpu_usage(self):
+    #     if self.tkwargs["device"] == "cuda":
+    #         self.logger.info(f"GPU usage: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} GB")
