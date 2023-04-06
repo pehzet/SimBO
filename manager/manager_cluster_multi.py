@@ -282,5 +282,5 @@ if __name__ == "__main__":
 
     manager_id = int(sys.argv[1])
     interval = int(sys.argv[2])
-    mp.Process(target=log_gpu_usage).start() # doesnt work with WIP TODO: fix
+    # mp.Process(target=log_gpu_usage).start() # doesnt work with WIP TODO: fix
     ExperimentManager(manager_id, interval).start_firestore_listener()
