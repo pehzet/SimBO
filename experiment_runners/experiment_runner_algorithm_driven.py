@@ -181,6 +181,7 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
                 sys.exit()
             try:
                 x = self.algorithm_runner.suggest()
+                self.log_gpu_usage()
             except BaseException as e:
                 retries += 1
                 logger.info(f"Error at Suggest: {e}. Retry {retries} of 5")

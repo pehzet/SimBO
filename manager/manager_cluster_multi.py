@@ -47,9 +47,9 @@ warnings.filterwarnings(
 
 all_results = []
 def send_experiment_to_runner(experiment, replication, tkwargs):
-    print(os.getenv('CUDA_VISIBLE_DEVICES'))
+    print(f"PRIOR: {os.environ['CUDA_VISIBLE_DEVICES']}")
     os.environ["CUDA_VISIBLE_DEVICES"] = tkwargs.get("UUID", "0")
-    print(os.getenv('CUDA_VISIBLE_DEVICES'))
+    print(f"POST: {os.environ['CUDA_VISIBLE_DEVICES']}")
 
     nvmlInit()
     torch.cuda.init()    
@@ -80,8 +80,8 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
 
 
 class ExperimentManager:
-    def __init__(self, checking_interval=60):
-
+    def __init__(self, manager_id, checking_interval=60):
+        self.manager_id = manager_id
         self.checking_interval = checking_interval
         self.experiments_queue = Queue()
         self.experiments_running = Queue()
@@ -99,12 +99,7 @@ class ExperimentManager:
 
         # for debug:
         # self.number_of_gpus = 7
-        self.available_gpus = Queue()
-        uuids = ["MIG-aeca6767-99c9-5fb8-b956-723bcb25d82b", "MIG-aae631f3-f7ad-5d35-b717-ccb9ba0b92f9", "MIG-c5f6bdea-5751-5327-bdce-7086947edd84", "MIG-07510fb0-c5df-56b5-bbc2-1d94286e3553", "UUID: MIG-32191766-a3ca-5c44-bddd-d0dc6d33acbd", "MIG-4839a599-f156-51e4-a526-4592d46b179d", "MIG-4839a599-f156-51e4-a526-4592d46b179d"]
-        for i, uuid in enumerate(uuids):
-            self.available_gpus.put({"UUID": uuid, "device_idx" : i})
-
-        self.used_gpus = Queue()
+        self.gpu_free = True
 
         self.date_format = "%Y-%m-%d %H:%M:%S"
         logger.info("Manager initialized.")
@@ -218,7 +213,8 @@ class ExperimentManager:
                     self.close_experiment(experiment)
                 
                 # self.processes_running.remove(process)
-                self.available_gpus.put(process.get("gpu"))
+                # self.available_gpus.put(process.get("gpu"))
+                self.gpu_free = True
                 processes_to_rm.append(process)
                 # p.close()
         for rmp in processes_to_rm:
@@ -228,8 +224,8 @@ class ExperimentManager:
 
     def check_experiment_queue(self):
         while not self.experiments_queue.empty():
-            if self.available_gpus.empty():
-                logger.info("No more GPUs available. Waiting for a GPU to be available...")
+            if not self.gpu_free:
+                logger.info("GPU busy. Going to wait...")
                 return
             try:
                 experiment_to_run = self.experiments_queue.get()
@@ -252,7 +248,7 @@ class ExperimentManager:
                     experiment["experiment_id"] = change.document.id
                     self.add_experiment_to_queue(experiment)
 
-        col_query = self.database.db.collection(u'experiments').where(u'status', u'==', u'open') 
+        col_query = self.database.db.collection(u'experiments').where(u'status', u'==', u'open').where(u'manager_id', u'==', self.manager_id)
         # TODO: make handler for failed experiments
         query_watch = col_query.on_snapshot(check_changes)
 
@@ -266,12 +262,15 @@ class ExperimentManager:
         # query_watch.unsubscribe()
     
 
-
-# def wrapper_run_experiment(experiment, tkwargs):
-#     run_experiment(experiment, tkwargs)
+def log_gpu_usage():
+    if torch.cuda.is_available():
+        while True:
+            # https://pytorch.org/docs/stable/generated/torch.cuda.max_memory_allocated.html
+            logger.info("GPU usage: " + str(torch.cuda.memory_allocated()))
+            time.sleep(1)
 
 if __name__ == "__main__":
-    # pool = Pool(nodes=5)
-    # ExperimentManager(pool, 10).start_firestore_listener()
-    
-    ExperimentManager(5).start_firestore_listener()
+
+    manager_id = int(sys.argv[1])
+    interval = int(sys.argv[2])
+    ExperimentManager(manager_id, interval).start_firestore_listener()

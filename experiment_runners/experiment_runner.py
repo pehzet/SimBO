@@ -159,3 +159,7 @@ class ExperimentRunner():
         logger.info(f"Experiment data saved to >{fpath}<")
         self.results = obj
         return obj
+    
+    def log_gpu_usage(self):
+        if self.tkwargs["device"] == "cuda":
+            logger.info(f"GPU usage: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} GB")

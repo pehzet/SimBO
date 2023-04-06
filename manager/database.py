@@ -80,7 +80,8 @@ class Database:
     def write_result_to_firestore(self, experiment_id, replication, results=None):
         
         if results == None:
-            dir_path = r'C:\code\SimBO\manager\data'
+            # dir_path = r'C:\code\SimBO\manager\data'
+            dir_path = os.path.join(self.main_dir,'manager','data')
             exp_string = "experiment_"+str(experiment_id)
             result_path = os.path.join(dir_path, exp_string, exp_string+"_" + str(replication)+".json")
             try:

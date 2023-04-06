@@ -37,3 +37,4 @@ trash
 manager_mp.py
 config.py
 experiment_generator.py
+*.log

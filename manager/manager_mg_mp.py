@@ -26,14 +26,15 @@ import copy
 sys.path.append('../')
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    filename='manager.log',
-    filemode='w',
-    format='%(asctime)s: %(levelname)s: %(name)s: %(message)s'
-)
+logging.basicConfig(filename="manager.log",
+                    filemode='a',
+                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.INFO)
+fh = logging.FileHandler('manager.log')
+fh.setLevel(logging.INFO)
 logger = logging.getLogger("manager")
-
+logger.addHandler(fh)
 
 
 # Surpress PyTorch warning
@@ -48,6 +49,9 @@ all_results = []
 def send_experiment_to_runner(experiment, replication, tkwargs):
     exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
     exp_id = experiment.get("experiment_id")
+    fh = logging.FileHandler('exp_name.log')
+    fh.setLevel(logging.INFO)
+    logger.addHandler(fh)
     results = None
     try:
         runner_type = experiment.get("runner_type")
@@ -246,7 +250,7 @@ class ExperimentManager:
         col_query = self.database.db.collection(u'experiments').where(u'status', u'==', u'open') 
         # TODO: make handler for failed experiments
         query_watch = col_query.on_snapshot(check_changes)
-
+        time.sleep(10)
         while self.should_listen:
             logger.info("Checking for finished experiment replications...")
             self.check_processes()
@@ -264,5 +268,8 @@ class ExperimentManager:
 if __name__ == "__main__":
     # pool = Pool(nodes=5)
     # ExperimentManager(pool, 10).start_firestore_listener()
-    
-    ExperimentManager(5).start_firestore_listener()
+    if len(sys.argv) > 1:
+        interval = int(sys.argv[1])
+    else:
+        interval = 60
+    ExperimentManager(interval).start_firestore_listener()
