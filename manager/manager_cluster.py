@@ -107,13 +107,13 @@ class ExperimentManager:
         self.used_gpus = Queue()
 
         self.date_format = "%Y-%m-%d %H:%M:%S"
-        logger.info("Manager initialized.")
+        self.logger.info("Manager initialized.")
 
     def run_experimentation_process(self, experiment: dict, tkwargs: dict, gpu: str = None):
         exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
         exp_id = experiment.get("experiment_id")
-        logger.info("Running experiment: " + str(exp_name))
-        logger.info("Execution time is: " + str(experiment.get("execution_datetime")))
+        self.logger.info("Running experiment: " + str(exp_name))
+        self.logger.info("Execution time is: " + str(experiment.get("execution_datetime")))
         replication = experiment.get("current_replication", 1)
         self.experiments_running.put(experiment)
         try:
@@ -133,12 +133,12 @@ class ExperimentManager:
 
             }
             self.processes_running.append(process_dict)
-            logger.info(f"Process started on gpu {gpu}: Replication {replication} of experiment {exp_name} (ID: {exp_id})")
+            self.logger.info(f"Process started on gpu {gpu}: Replication {replication} of experiment {exp_name} (ID: {exp_id})")
             # Processes will be closed later at "check_processes" function
       
         except Exception as e:
-            logger.error(f"Error while running experiment {exp_name} (ID: {exp_id}) ")
-            logger.error(e)
+            self.logger.error(f"Error while running experiment {exp_name} (ID: {exp_id}) ")
+            self.logger.error(e)
             self.close_experiment(experiment, failed=True)
           
 
@@ -148,13 +148,13 @@ class ExperimentManager:
         if failed:
             self.experiments_failed.put(experiment)
             _experiment = self.experiments_running.get(experiment)
-            logger.error(f"Experiment failed: {exp_name} (ID: {exp_id}) ")
+            self.logger.error(f"Experiment failed: {exp_name} (ID: {exp_id}) ")
             self.database.set_experiment_status(exp_id, "failed")
             self.save_experiment_as_json(experiment)
         else:
             self.experiments_done.put(experiment)
             _experiment = self.experiments_running.get(experiment)
-            logger.info(f"Experiment finished: {exp_name} (ID: {exp_id}) ")
+            self.logger.info(f"Experiment finished: {exp_name} (ID: {exp_id}) ")
             self.database.set_experiment_status(exp_id, "done")
 
     def save_experiment_as_json(self, experiment):
@@ -178,7 +178,7 @@ class ExperimentManager:
         else:
             exp_id = experiment.get("experiment_id")
             exp_name = experiment.get("experiment_name")
-            logger.error(f"Use case of Experiment {exp_name} (ID: {exp_id}) not identified. Please check the experiment creation.")
+            self.logger.error(f"Use case of Experiment {exp_name} (ID: {exp_id}) not identified. Please check the experiment creation.")
 
         return experiment
 
@@ -186,7 +186,7 @@ class ExperimentManager:
         replications = experiment.get("replications", 1)
         replications_fulfilled = experiment.get("replications_fulfilled", 0)
         if replications_fulfilled == replications:
-            logger.info("Experiment already fulfilled. Skipping...")
+            self.logger.info("Experiment already fulfilled. Skipping...")
             self.close_experiment(experiment)
             return
         for r in range(int(replications_fulfilled), int(replications)):
@@ -194,12 +194,12 @@ class ExperimentManager:
             _experiment["current_replication"] = r + 1
             _experiment = self.identify_runner_type(_experiment)
             self.experiments_queue.put(_experiment)
-            logger.info("Experiment added to queue: " + str(_experiment.get("experiment_name", _experiment.get("experiment_id"))) + " Replication: " + str(r + 1))
+            self.logger.info("Experiment added to queue: " + str(_experiment.get("experiment_name", _experiment.get("experiment_id"))) + " Replication: " + str(r + 1))
       
 
     def check_processes(self):
         if len(self.processes_running) == 0:
-            logger.info("No processes running. Waiting for experiments to be added to the queue...")
+            self.logger.info("No processes running. Waiting for experiments to be added to the queue...")
             return
         # Copy to remove elements while iterating
         # processes = copy.deepcopy(self.processes_running)
@@ -229,7 +229,7 @@ class ExperimentManager:
     def check_experiment_queue(self):
         while not self.experiments_queue.empty():
             if self.available_gpus.empty():
-                logger.info("No more GPUs available. Waiting for a GPU to be available...")
+                self.logger.info("No more GPUs available. Waiting for a GPU to be available...")
                 return
             try:
                 experiment_to_run = self.experiments_queue.get()
@@ -237,14 +237,14 @@ class ExperimentManager:
                 device_idx = gpu.get("device_idx")
                 tkwargs = {"device": torch.device(f"cuda" if torch.cuda.is_available() else "cpu"), "dtype": self.dtype, "UUID":gpu.get("UUID"), "device_idx" : device_idx}
                 # logger.info("Starting experiment with ID: " + str(experiment_to_run.get("experiment_id")) + " and name: " + str(experiment_to_run.get("experiment_name")) + " at " + str(datetime.now()) + "on: " + str(gpu))
-                logger.info("Execution time is: " + str(experiment_to_run.get("execution_datetime")))
+                self.logger.info("Execution time is: " + str(experiment_to_run.get("execution_datetime")))
                 self.run_experimentation_process(experiment_to_run, tkwargs, gpu)
             except Exception as e:
                 print(e)
         print("No more experiments to run")
 
     def start_firestore_listener(self):
-        logger.info("Starting Listening to Firestore...")
+        self.logger.info("Starting Listening to Firestore...")
         def check_changes(col_snapshot, changes, read_time):
             for change in changes:
                 if change.type.name == 'ADDED':
@@ -257,9 +257,9 @@ class ExperimentManager:
         query_watch = col_query.on_snapshot(check_changes)
 
         while self.should_listen:
-            logger.info("Checking for finished experiment replications...")
+            self.logger.info("Checking for finished experiment replications...")
             self.check_processes()
-            logger.info("Checking for new experiments to run...")
+            self.logger.info("Checking for new experiments to run...")
             self.check_experiment_queue()
    
             time.sleep(self.checking_interval)

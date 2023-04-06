@@ -9,11 +9,14 @@ import os
 import json
 import logging
 import config
-config.FIREBASE_CONFIG
+
 logger = logging.getLogger("database")
 class Database:
-    def __init__(self, main_dir):
-        self.main_dir = main_dir
+    def __init__(self, main_dir=None):
+        if main_dir is None:
+            self.main_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+        else:
+            self.main_dir = main_dir
         self.fb_key_name = config.FIREBASE_CONFIG
         self.app = self.init_firebase()
         self.db = self.init_firestore()
@@ -73,7 +76,7 @@ class Database:
             if fb:
                 self.write_experiment_to_firestore(config)
     
-    def update_replication_at_firesotre(self, experiment_id, replication):
+    def update_replication_at_firestore(self, experiment_id, replication):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
         doc_ref.update({u'replications_fulfilled': replication})
 
@@ -101,7 +104,7 @@ class Database:
         except Exception as e:
             logger.error(e)
             logger.error(f"Error writing results to firestore for experiment {experiment_id} Replication: {replication}")
-        self.update_replication_at_firesotre(experiment_id, replication)
+        self.update_replication_at_firestore(experiment_id, replication)
 
     def write_file_to_storage(self,experiment_id, replication, obj_name, obj_suffix="pkl"):
         dir_path = os.path.join(self.main_dir,'data')
@@ -123,6 +126,12 @@ class Database:
             if not blob.exists():
                 blob.upload_from_filename(os.path.join(folder, file))
         logger.info(f"Files for experiment {exp_id} written to storage")
+    
+    def update_replication_progress(self, experiment_id, replication, current_arm, budget):
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
+
+        doc_ref.update({f'replication_progress.{str(replication)}': f'{str(current_arm)} of {str(budget)}'})
+
 def get_all_files_from_folder():
     # folder path
 

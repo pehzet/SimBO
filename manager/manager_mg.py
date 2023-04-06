@@ -23,7 +23,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s: %(levelname)s: %(name)s: %(message)s'
 )
-logger = logging.getLogger("manager")
+self.logger = logging.getLogger("manager")
 # file_handler = logging.FileHandler('pathos.log')
 # formatter = logging.Formatter('%(asctime)s %(process)s %(levelname)s %(message)s')
 # file_handler.setFormatter(formatter)
@@ -71,14 +71,14 @@ class ExperimentManager:
         self.used_gpus = Queue()
 
         self.date_format = "%Y-%m-%d %H:%M:%S"
-        logger.info("Manager initialized.")
+        self.logger.info("Manager initialized.")
 
     def run_experiment(self, experiment: dict, tkwargs: dict):
         exp_name = experiment.get(
             "experiment_name", experiment.get("experiment_id"))
         exp_id = experiment.get("experiment_id")
-        logger.info("Running experiment: " + str(exp_name))
-        logger.info("Execution time is: " +
+        self.logger.info("Running experiment: " + str(exp_name))
+        self.logger.info("Execution time is: " +
                     str(experiment.get("execution_datetime")))
         # start_random_loop()
         # for multiprocessing check: https://stackoverflow.com/questions/56481306/running-different-python-functions-in-separate-cpus
@@ -86,7 +86,7 @@ class ExperimentManager:
             runner_type = experiment.get("runner_type")
             replication = 1
             while replication <= int(experiment.get("replications")):
-                logger.info(
+                self.logger.info(
                     f"Replication {replication} of experiment {exp_name} (ID: {exp_id})  started")
                 # Here we should use multiprocessing
                 if runner_type == "simulation":
@@ -98,7 +98,7 @@ class ExperimentManager:
                     ExperimentRunnerAlgorithmDriven(experiment, replication, tkwargs).run_optimization_loop()
 
                 else:
-                    logger.error(
+                    self.logger.error(
                         f"Runner Type of experiment {exp_name} (ID: {exp_id}) not identified. Maybe typo at gsheet. Going to exit")
                     sys.exit()
                 try:
@@ -107,25 +107,25 @@ class ExperimentManager:
                     self.database.write_all_files_to_storage(exp_id)
 
                 except Exception as e:
-                    logger.error(
+                    self.logger.error(
                         f"Error while writing results of experiment {exp_name} (ID: {exp_id}) to Firestore")
-                    logger.error(e)
+                    self.logger.error(e)
                     sys.exit()
                 replication += 1
 
             self.experiments_done.put(experiment)
             _experiment = self.experiments_running.get(experiment)
-            logger.info(f"Experiment finished: {exp_name} (ID: {exp_id}) ")
+            self.logger.info(f"Experiment finished: {exp_name} (ID: {exp_id}) ")
             try:
                 self.database.set_experiment_status(exp_id, "done")
             except Exception as e:
-                logger.error(
+                self.logger.error(
                     f"Error while setting experiment {exp_name} (ID: {exp_id})  to status 'done'")
             return
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"Error while running experiment {exp_name} (ID: {exp_id}) ")
-            logger.error(e)
+            self.logger.error(e)
             self.experiments_failed.put(experiment)
             _experiment = self.experiments_running.get(experiment)
             self.save_experiment_as_json(experiment)
@@ -152,7 +152,7 @@ class ExperimentManager:
         else:
             exp_id = experiment.get("experiment_id")
             exp_name = experiment.get("experiment_name")
-            logger.error(
+            self.logger.error(
                 f"Use case of Experiment {exp_name} (ID: {exp_id}) not identified. Please check the experiment creation.")
             sys.exit()
         return experiment
@@ -161,9 +161,9 @@ class ExperimentManager:
         experiment = self.identify_runner_type(experiment)
         self.experiments_running.put(experiment)
         self.experiments_queue.put(experiment)
-        logger.info("Experiment added to queue: " +
+        self.logger.info("Experiment added to queue: " +
                     str(experiment.get("experiment_name", experiment.get("experiment_id"))))
-        logger.info("Execution time is: " +
+        self.logger.info("Execution time is: " +
                     str(experiment.get("execution_datetime")))
 
     def check_experiment_queue(self):
@@ -172,7 +172,7 @@ class ExperimentManager:
         # Check if there are any available processors
         while not self.experiments_queue.empty():
             if self.available_gpus.empty():
-                logger.info("No available GPUs. Waiting 60 seconds...")
+                self.logger.info("No available GPUs. Waiting 60 seconds...")
                 time.sleep(2)
                 break
             try:
@@ -199,7 +199,7 @@ class ExperimentManager:
         print("No more experiments to run")
 
     def start_firestore_listener(self):
-        logger.info("Starting Listening to Firestore...")
+        self.logger.info("Starting Listening to Firestore...")
 
         # handler = QueueHandler(self.experiment_queue)
 
@@ -224,7 +224,7 @@ class ExperimentManager:
         # self.last_check = datetime.now()
         # Watch the collection query
         while self.should_listen:
-            logger.info("Checking for new experiments to run...")
+            self.logger.info("Checking for new experiments to run...")
             self.check_experiment_queue()
             time.sleep(self.checking_interval)
             # self.last_check = datetime.now()

@@ -49,21 +49,21 @@ class ExperimentManager:
         self.processes = []
 
         self.date_format = "%Y-%m-%d %H:%M:%S"
-        logger.info("Manager initialized.")
+        self.logger.info("Manager initialized.")
         
     
     def run_experiment(self,experiment:dict):
         exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
         exp_id = experiment.get("experiment_id")
-        logger.info("Running experiment: " + str(exp_name))
-        logger.info("Execution time is: " + str(experiment.get("execution_datetime")))
+        self.logger.info("Running experiment: " + str(exp_name))
+        self.logger.info("Execution time is: " + str(experiment.get("execution_datetime")))
         # start_random_loop()
         # for multiprocessing check: https://stackoverflow.com/questions/56481306/running-different-python-functions-in-separate-cpus
         try:
             runner_type = experiment.get("runner_type")
             replication = 1
             while replication <= int(experiment.get("replications")):
-                logger.info(f"Replication {replication} of experiment {exp_name} (ID: {exp_id})  started")
+                self.logger.info(f"Replication {replication} of experiment {exp_name} (ID: {exp_id})  started")
                 # Here we should use multiprocessing
                 if runner_type == "simulation":
                     ExperimentRunnerSimulationDriven(experiment, replication, self.tkwargs)
@@ -71,28 +71,28 @@ class ExperimentManager:
                 elif runner_type == "algorithm":
                     results = ExperimentRunnerAlgorithmDriven(experiment, replication, self.tkwargs).run_optimization_loop()
                 else:
-                    logger.error(f"Runner Type of experiment {exp_name} (ID: {exp_id}) not identified. Maybe typo at gsheet. Going to exit")
+                    self.logger.error(f"Runner Type of experiment {exp_name} (ID: {exp_id}) not identified. Maybe typo at gsheet. Going to exit")
                     sys.exit()
                 try:
                     self.database.write_result_to_firestore(exp_id,replication,results)
                     self.database.write_all_files_to_storage(exp_id)
                 except Exception as e:
-                    logger.error(f"Error while writing results of experiment {exp_name} (ID: {exp_id}) to Firestore")
-                    logger.error(e)
+                    self.logger.error(f"Error while writing results of experiment {exp_name} (ID: {exp_id}) to Firestore")
+                    self.logger.error(e)
                     sys.exit()
                 replication += 1
       
             self.experiments_done.append(experiment)
             self.experiments_running.remove(experiment)
-            logger.info(f"Experiment finished: {exp_name} (ID: {exp_id}) ")
+            self.logger.info(f"Experiment finished: {exp_name} (ID: {exp_id}) ")
             try:
                 self.database.set_experiment_status(exp_id, "done")
             except Exception as e:
-                logger.error(f"Error while setting experiment {exp_name} (ID: {exp_id})  to status 'done'")
+                self.logger.error(f"Error while setting experiment {exp_name} (ID: {exp_id})  to status 'done'")
             return
         except Exception as e:
-            logger.error(f"Error while running experiment {exp_name} (ID: {exp_id}) ")
-            logger.error(e)
+            self.logger.error(f"Error while running experiment {exp_name} (ID: {exp_id}) ")
+            self.logger.error(e)
             self.experiments_failed.append(experiment)
             self.experiments_running.remove(experiment)
             self.save_experiment_as_json(experiment)
@@ -119,7 +119,7 @@ class ExperimentManager:
         else:
             exp_id = experiment.get("experiment_id")
             exp_name = experiment.get("experiment_name")
-            logger.error(f"Use case of Experiment {exp_name} (ID: {exp_id}) not identified. Please check the experiment creation.")
+            self.logger.error(f"Use case of Experiment {exp_name} (ID: {exp_id}) not identified. Please check the experiment creation.")
             sys.exit()
         return experiment
 
@@ -130,8 +130,8 @@ class ExperimentManager:
                 return
             experiment = self.identify_runner_type(experiment)
             self.experiments_queue.append(experiment)
-            logger.info("Experiment added to queue: " + str(experiment.get("experiment_name", experiment.get("experiment_id"))))
-            logger.info("Execution time is: " + str(experiment.get("execution_datetime")))
+            self.logger.info("Experiment added to queue: " + str(experiment.get("experiment_name", experiment.get("experiment_id"))))
+            self.logger.info("Execution time is: " + str(experiment.get("execution_datetime")))
     
     def check_experiment_queue(self):
         if len(self.experiments_queue) > 0:
@@ -149,13 +149,13 @@ class ExperimentManager:
 
                        
                     except Exception as e:
-                        logger.error("Error: unable to start process to run experiment")
-                        logger.error(e)
+                        self.logger.error("Error: unable to start process to run experiment")
+                        self.logger.error(e)
                         sys.exit()
 
 
     def start_firestore_listener(self):
-        logger.info("Starting Listening to Firestore...")
+        self.logger.info("Starting Listening to Firestore...")
         # Create an Event for notifying main thread.
         callback_done = threading.Event()
 
@@ -176,7 +176,7 @@ class ExperimentManager:
         # self.last_check = datetime.now()
         # Watch the collection query
         while self.should_listen:
-            logger.info("Checking for new experiments to run...")
+            self.logger.info("Checking for new experiments to run...")
             self.check_experiment_queue()
             time.sleep(self.checking_interval)
             # self.last_check = datetime.now()
