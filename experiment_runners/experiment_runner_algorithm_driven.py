@@ -206,6 +206,7 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
             self.eval_budget -= len(x)
             self.current_trial +=1
             self.logger.info(f"Trial {self.current_trial} with {len(x)} Arms completed")
+            torch.cuda.empty_cache()
         _end = time.monotonic()
         self.experiment_end_dts = datetime.now().isoformat()
         self.total_duration_seconds =  _end -_start
