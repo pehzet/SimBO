@@ -170,7 +170,10 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
         self.current_trial +=1
         retries = 0
         self.logger.info("Initial Trial completed")
-  
+        del x
+        del _y
+        del y
+        del ysem
         while self.eval_budget > 0:
             _start_trial = time.monotonic()
             if retries == 5:
