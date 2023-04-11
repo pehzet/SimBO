@@ -5,7 +5,7 @@ import logging
 import sys
 from icecream import ic
 import csv
-import json
+import numpy as np
 import datetime
 logger = logging.getLogger("mrpsim")
 
@@ -26,17 +26,18 @@ class Material():
         for k, v in material_dict.items():
             setattr(self, k, v)
         self.quantity_in_stock = 0
-        self.penalty_costs_list = []
-        self.storage_costs_list = []
+        self.penalty_costs_list = np.array([])
+        self.storage_costs_list = np.array([])
         
 
     def calc_storage_costs(self):
         sc = round(self.quantity_in_stock * self.storage_cost_rate,2)
-        self.storage_costs_list.append(sc)
+        self.storage_costs_list = np.append(self.storage_costs_list, sc)
+
         return sc
     def calc_penalty_costs(self, quantity):
         pc = round(self.penalty_cost_rate * quantity)
-        self.penalty_costs_list.append(pc)
+        self.penalty_costs_list = np.append(self.penalty_costs_list, pc)
         return pc
     # def calc_penalty_costs_exponential(self, order, period):
     #     delay = order.due_date - period
@@ -84,25 +85,26 @@ class Child():
 class MRPSimulation():
     def __init__(self, releases, materials, bom, orders, stochastic_method="discrete") -> None:
         self.releases = [Release(r) for r in copy.deepcopy(releases)]
+        self.costs = np.array([])
+        self.sl = np.array([])
 
-        self.costs = []
-        self.sl = []
-     
         self.materials = [Material(m) for m in copy.deepcopy(materials)]
-        self.bom = copy.deepcopy(bom) # no deepcopy required?
+        self.materials_dict = {m.id: m for m in self.materials}
+        self.bom = bom 
+        self.bom_cache = {}
         self.orders = [Order(o) for o in copy.deepcopy(orders)]
         self.stochastic_method = stochastic_method
         self.storage_costs = 0
         self.penalty_costs = 0
-        self.check()
+        # self.check()
 
     def get_material_by_id(self, material_id):
-        return [m for m in self.materials if m.id == str(material_id)][0]
+        return self.materials_dict[str(material_id)]
     def get_material_in_stock_by_id(self, material_id):
-        m_in_stock_list = [m for m in self.materials if m.id == material_id and m.quantity_in_stock >0]
-        if len(m_in_stock_list) == 0:
-            return None
-        return m_in_stock_list[0]
+        material = self.get_material_by_id(material_id)
+        if material and material.quantity_in_stock > 0:
+            return material
+        return None
     def check_if_materials_unique(self):
         material_ids = [m.id for m in self.materials]
         if len(material_ids) > len(set(material_ids)):
@@ -110,7 +112,8 @@ class MRPSimulation():
             return False
         return True
     def calc_storage_costs_all(self):
-        sc = [m.quantity_in_stock * m.storage_cost_rate for m in self.materials if m.quantity_in_stock > 0]
+        sc = [m.calc_storage_costs() for m in self.materials_dict.values() ]
+        # sc = [m.quantity_in_stock * m.storage_cost_rate for m in self.materials if m.quantity_in_stock > 0]
         self.storage_costs += sum(sc)
         return sc
 
@@ -133,6 +136,9 @@ class MRPSimulation():
             sys.exit()
         return True
     def get_bom_childs_with_quantity(self, parent_id, parent_quantity):
+        cache_key = (parent_id, parent_quantity)
+        if cache_key in self.bom_cache:
+            return self.bom_cache[cache_key]
         children = [b for b in self.bom if str(b["parent_id"]) == str(parent_id)]
         if len(children) == 0:
             return None
@@ -141,17 +147,16 @@ class MRPSimulation():
             child_quant = c["quantity"] * parent_quantity
             bom_children_with_quant.append(
                 Child(c.get("child_id"),child_quant, c.get("quantity")))
+        self.bom_cache[cache_key] = bom_children_with_quant
         return bom_children_with_quant
     
     def sample_lead_time_delay(self):
         if self.stochastic_method == "discrete":
             values = [0,1,2,3]
             weights = [120,5,3,2]
-            assert len(values) == len(weights)
-            value = random.choices(values, weights,k=1)
 
-            return value[0]
-        if self.stochastic_method in ["deterministic", "None", None]:
+            return random.choices(values, weights,k=1)[0]
+        elif self.stochastic_method in ["deterministic", "None", None]:
             return 0
         logging.warn("No method for sample lead time delay selected. Return 0")
         return 0
@@ -172,10 +177,10 @@ class MRPSimulation():
     def run_simulation(self, sim_time=200):
         # range starts with 1 and ends with sim_time + 1 (from start) + 1(to calc cost of previous period in case of backorder) 
         for period in range(1, sim_time + 20):
-
             # STEP 1: record storage sosts of last period
-            self.costs.extend(self.calc_storage_costs_all())
-            
+   
+            self.costs = np.append(self.costs, self.calc_storage_costs_all())
+
             # STEP 2: Receive Releases from previous periods (called arrivals)  
             arrivals_in_period = self.get_arrivals(period)
             for a in arrivals_in_period:
@@ -236,37 +241,40 @@ class MRPSimulation():
 
             
             # STEP 4: Fulfill orders in Period
-            orders_in_period = self.get_orders_in_period(period)         
+            orders_in_period = self.get_orders_in_period(period)  
+      
             for o in orders_in_period:
                 if not hasattr(o, "first_apperance"):
                     o.first_apperance = period
                 # STEP 4.1 Append Penalty costs of last period if is_backorder
                 m = self.get_material_by_id(o.id)
-
          
                 if o.backorder:
-                    self.costs.append(m.calc_penalty_costs(o.quantity))
+                    self.costs = np.append(self.costs, m.calc_penalty_costs(o.quantity))
+               
                 # Set fullfilment quantity case specific
                 _fulfill_quant = 0
                 # Case Fulfillment = 0
                 if m.quantity_in_stock <= 0:
                     if not o.backorder:
-                            self.sl.append(0)
+                            self.sl = np.append(self.sl, 0)
                             o.backorder = True
-                    self.costs.append(m.calc_penalty_costs(o.quantity))
+                    self.costs = np.append(self.costs, m.calc_penalty_costs(o.quantity))
+    
                 # Case partly Fulfillment
                 elif o.quantity > m.quantity_in_stock:
                     _fulfill_quant = m.quantity_in_stock
                     if not o.backorder:
-                        self.sl.append(0)
+                        self.sl = np.append(self.sl, 0)
                         o.backorder = True
-                    self.costs.append(m.calc_penalty_costs((o.quantity - _fulfill_quant)))
+                    self.costs = np.append(self.costs, m.calc_penalty_costs(o.quantity - _fulfill_quant))
+          
                     o.quantity -= _fulfill_quant
                     m.quantity_in_stock -= _fulfill_quant
                 # Case complete Fullfilment
                 elif o.quantity <= m.quantity_in_stock:
                     if not o.backorder:
-                        self.sl.append(1)
+                        self.sl= np.append(self.sl, 1)
                     _fulfill_quant = o.quantity
                     o.quantity = 0
                     o.fulfillment_date = period
@@ -274,11 +282,9 @@ class MRPSimulation():
                 else:
                     logging.error("Error at Order Fulfillment. Let order pass.")
 
- 
+
         assert len(self.sl) > 0
-        _all_penalty_costs = sum([sum(m.penalty_costs_list) for m in self.materials])
-        self.write_costs_csv(int(sum(self.costs)), self.storage_costs, _all_penalty_costs, sum(self.sl)/len(self.sl))
-        return {"costs" : int(sum(self.costs)), "service_level" : sum(self.sl)/len(self.sl)}
+        return {"costs" : int(np.sum(self.costs)), "service_level" : np.average(self.sl)}
 
     def write_costs_csv(self, all_costs, storage_costs, penalty_costs, sl):
         with open("costs.csv", "a",encoding='utf-8',newline='') as f:

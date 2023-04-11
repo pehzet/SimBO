@@ -38,3 +38,6 @@ manager_mp.py
 config.py
 experiment_generator.py
 *.log
+profile.txt
+mrp_sim_test.py
+mrp_sim_old.py
