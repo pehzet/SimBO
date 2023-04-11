@@ -121,11 +121,16 @@ class Database:
     def write_all_files_to_storage(self, exp_id):
         folder_name = "experiment_" + str(exp_id)
         folder = os.path.join(self.main_dir, 'manager', 'data', folder_name)
-        for file in os.listdir(folder):
-            blob = self.bucket.blob(folder_name + "/" + file)
-            if not blob.exists():
-                blob.upload_from_filename(os.path.join(folder, file))
-        logger.info(f"Files for experiment {exp_id} written to storage")
+        try:
+            for file in os.listdir(folder):
+                blob = self.bucket.blob(folder_name + "/" + file)
+                if not blob.exists():
+                    blob.upload_from_filename(os.path.join(folder, file))
+            logger.info(f"Files for experiment {exp_id} written to storage")
+        except Exception as e:
+            logger.error(e)
+            logger.error(f"Error writing files to storage for experiment {exp_id}")
+            
     
     def update_replication_progress(self, experiment_id, replication, current_arm, budget):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id))

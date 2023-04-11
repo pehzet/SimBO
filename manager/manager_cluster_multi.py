@@ -246,9 +246,9 @@ class ExperimentManager:
                     experiment["experiment_id"] = change.document.id
                     self.add_experiment_to_queue(experiment)
         if self.manager_id == -1:
-            col_query = self.database.db.collection(u'experiments').where(u'status', u'==', u'open')
+            col_query = self.database.db.collection(u'experiments').where(u'status',  u'in', [u'open',u'running'])
         else:
-            col_query = self.database.db.collection(u'experiments').where(u'status', u'==', u'open').where(u'manager_id', u'==', self.manager_id)
+            col_query = self.database.db.collection(u'experiments').where(u'status', u'in', [u'open',u'running']).where(u'manager_id', u'==', self.manager_id)
         # TODO: make handler for failed experiments
         query_watch = col_query.on_snapshot(check_changes)
         self.logger.info("Checking initially for new experiments to run...")

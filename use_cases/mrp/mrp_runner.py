@@ -80,8 +80,13 @@ class MRPRunner():
     def transform_x(self, x):
         assert self.param_meta is not None
         assert self.bounds is not None
-
-        x = unnormalize(x, bounds=self.bounds)
+        try:
+            x = unnormalize(x, bounds=self.bounds)
+        except:
+            logger.debug("x or bounds are not tensors. Converting all to tensors...")
+            x = tensor(x).to(tkwargs["device"])
+            self.bounds = tensor(self.bounds).to(tkwargs["device"])
+            x = unnormalize(x, bounds=self.bounds)
         x_mrp = []
         for i,pm in enumerate(self.param_meta):
 
@@ -94,6 +99,10 @@ class MRPRunner():
             )
 
         return x_mrp
+    def tensor_to_list(self,t):
+        if torch.is_tensor(t):
+            t = t.tolist()
+        return t
     def transform_y_to_tensors_mean_sem(self, y_mrp):
         '''
         returns two tensors with mean and sem
