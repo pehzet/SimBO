@@ -121,7 +121,8 @@ class ExperimentRunner():
             
             sigma0 = algorithm_config.get("sigma", 0.5)
 
-            return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0, num_init=num_init, use_case_runner=self.use_case_runner, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
+            ucr = self.use_case_runner if self.use_case_runner.stochastic_method != 'deterministic' else None
+            return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0, num_init=num_init, use_case_runner=ucr, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         
         if self.algorithm == "sobol":
             return SobolRunner(self.experiment_id, self.replication,dim,batch_size=1, num_init=1, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])

@@ -47,16 +47,22 @@ class CMAESRunner(OptimizationAlgorithmBridge):
         xx = self.list_to_tensor(xx)
         return xx
 
+    def eval_wrapper(self, x):
+        y = self.use_case_runner.eval(x)
+        return self.tensor_to_list(y)
+    
     def complete(self,yy, yvar=None):
- 
         
         self.X.append(self.X_next)
         #self.es.logger.add()
         self.Y_next = yy
         # cma-es ist default minimize (BO is default maximize)
-        if self.nh is not None:
-            self.es.sigma *= self.nh(self.X_next, self.Y_next, self.use_case_runner.eval, self.es.ask)
+
         yy = yy*-1 if self.minimize else yy
+        if self.nh is not None:
+            _X_next = self.tensor_to_list(self.X_next)
+            _Y_next = self.tensor_to_list(yy)
+            self.es.sigma *= self.nh(_X_next, _Y_next, self.eval_wrapper, self.es.ask)
         self.identity_best_in_trial()
         #NOTE: yvar not needed atm
         yy = self.tensor_to_list(yy)
