@@ -58,6 +58,14 @@ class Database:
         else:
             return None
 
+    def get_best_candidat_of_replication(self, experiment_id, replication):
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id)).collection(u"results").document("Replication_" + str(replication))
+        doc = doc_ref.get()
+        if doc.exists:
+            return doc.to_dict()
+        else:
+            return None
+
     def read_local_config(self):
         fpath = os.path.join(self.main_dir,'manager','config.json')
         with open(fpath) as json_file:
@@ -99,12 +107,13 @@ class Database:
         
       
         try:
-            doc_ref.set(results)
+            best_candidate = results.get("best_candidate",{})
+            doc_ref.set(best_candidate)
             logger.info(f"Results written to firestore for experiment {experiment_id} Replication: {replication}")
         except Exception as e:
             logger.error(e)
             logger.error(f"Error writing results to firestore for experiment {experiment_id} Replication: {replication}")
-        self.update_replication_at_firestore(experiment_id, replication)
+        # self.update_replication_at_firestore(experiment_id, replication)
 
     def write_file_to_storage(self,experiment_id, replication, obj_name, obj_suffix="pkl"):
         dir_path = os.path.join(self.main_dir,'data')

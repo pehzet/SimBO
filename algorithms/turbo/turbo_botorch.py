@@ -103,7 +103,7 @@ class TurboRunner(OptimizationAlgorithmBridge):
         self.is_init = False
         if self.state.restart_triggered:
             self.restart_state()
-            self.X_next = self.suggest_initial(self.num_init/2)
+            self.X_next = self.suggest_initial(int(math.floor(self.num_init/2)))
             return self.X_next
         # Standarize Y and normalize Noise as said here: https://botorch.org/api/models.html#botorch.models.gp_regression.SingleTaskGP
         # This performs better. Testet fngp and hsgp / 2022-10-04 PZ

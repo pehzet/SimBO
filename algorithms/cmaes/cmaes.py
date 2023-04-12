@@ -8,11 +8,11 @@ logger = logging.getLogger("cmaes")
 from icecream import ic
 
 class CMAESRunner(OptimizationAlgorithmBridge):
-    def __init__(self, experiment_id,  replication, dim, batch_size, bounds, sigma0,  num_init=-1, device="cpu", dtype=torch.double) -> None:
+    def __init__(self, experiment_id,  replication, dim, batch_size, bounds, sigma0,  num_init=-1, use_case_runner=None, device="cpu", dtype=torch.double) -> None:
 
         constraints = None
         super().__init__(experiment_id,  replication, dim, batch_size, constraints,num_init, device, dtype)
-   
+        self.use_case_runner = use_case_runner
         self.bounds = self.tensor_to_list(bounds)
         self.sigma0 = float(sigma0) if sigma0 != -1 else 0.5 #0.5 is default in tutorial https://pypi.org/project/cma/
         self.X_next_l = None
@@ -27,7 +27,7 @@ class CMAESRunner(OptimizationAlgorithmBridge):
         opts.set('seed', 12345)
         # NOTE: lt. Link oben benötigt cmaes 100xdim candidates für befriedigende Ergebnisse
         self.es = cma.CMAEvolutionStrategy(self.dim*[0], sigma0=self.sigma0,inopts=opts)
-
+        self.nh = cma.optimization_tools.NoiseHandler(self.es, maxevals=4, aggregate=np.mean) if use_case_runner is not None else None
     def tensor_to_list(self,t):
         if torch.is_tensor(t):
             t = t.tolist()
@@ -42,6 +42,7 @@ class CMAESRunner(OptimizationAlgorithmBridge):
 
     def suggest(self):
         xx = self.es.ask()
+        
         self.X_next = xx
         xx = self.list_to_tensor(xx)
         return xx
@@ -53,6 +54,8 @@ class CMAESRunner(OptimizationAlgorithmBridge):
         #self.es.logger.add()
         self.Y_next = yy
         # cma-es ist default minimize (BO is default maximize)
+        if self.nh is not None:
+            self.es.sigma *= self.nh(self.X_next, self.Y_next, self.use_case_runner.eval, self.es.ask)
         yy = yy*-1 if self.minimize else yy
         self.identity_best_in_trial()
         #NOTE: yvar not needed atm

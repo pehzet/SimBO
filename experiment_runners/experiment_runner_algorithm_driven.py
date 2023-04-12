@@ -111,10 +111,16 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
             self.current_candidat +=1
             y = yy[i]
             ts = self.algorithm_runner.get_technical_specs()
+            if self.algorithm.lower() in ["cmaes", "cma-es"]:
+                sm = 'cmaes'
+                acqf = 'cmaes'
+            else:
+                sm = ts.get("sm", "na") if self.current_candidat > self.algorithm_runner.num_init else "init"
+                acqf = ts.get("acqf", "na") if self.current_candidat > self.algorithm_runner.num_init else "init"
             self.candidates.append({
                 "id" : self.current_candidat,
-                "sm" : ts.get("sm", "na") if self.current_candidat > self.algorithm_runner.num_init else "init",
-                "acqf" : ts.get("acqf", "na") if self.current_candidat > self.algorithm_runner.num_init else "init",
+                "sm" : sm,
+                "acqf" : acqf,
                 "tr" : self.algorithm_runner.get_tr(),
                 "x" : self.use_case_runner.format_x_for_candidate(x),
                 "y" : self.use_case_runner.format_y_for_candidate(y),

@@ -46,7 +46,8 @@ class MRPRunner():
         return [{"name":"costs"}, {"name" : "sl"}]
     def create_constraints(self):
         return None
-    def eval(self, x, ):
+    def eval(self, x,):
+
         x = self.transform_x(x)
 
         self.X.append(x)
@@ -59,7 +60,20 @@ class MRPRunner():
         y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_sim_runs:])
   
         return y
+    def eval_manually(self, x, skip_transform=False):
+        if not skip_transform:
+            x = self.transform_x(x)
 
+        releases = self.run_solver(x)
+        results = list()
+        for _ in range(self.num_sim_runs):
+      
+            result = MRPSimulation(releases, self.materials, self.bom, self.orders, stochastic_method = self.stochastic_method).run_simulation(sim_time=200)
+            results.append(result)
+     
+        y = self.get_mean_and_sem_from_y(results)
+  
+        return y
     def get_mean_and_sem_from_y(self, y_raw):
         data = list()
 

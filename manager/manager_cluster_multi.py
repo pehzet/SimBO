@@ -20,8 +20,6 @@ from queue import Queue
 import warnings
 import logging
 import json
-from icecream import ic
-from datetime import datetime
 import time
 import copy
 sys.path.append('../')
@@ -62,10 +60,13 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
     try:
         runner_type = experiment.get("runner_type")
         if runner_type == "simulation":
-            results = ExperimentRunnerSimulationDriven(experiment, replication, tkwargs).init_flask()
-       
+            ersd = ExperimentRunnerSimulationDriven(experiment, replication, tkwargs)
+            results = ersd.init_flask()
+
         elif runner_type == "algorithm":
-            results = ExperimentRunnerAlgorithmDriven(experiment, replication, tkwargs).run_optimization_loop()
+            erad = ExperimentRunnerAlgorithmDriven(experiment, replication, tkwargs)
+            results = erad.run_optimization_loop()
+            erad.simulate_best_candidate_of_experiment_replication(exp_id, replication, experiment_config=experiment)
 
         else:
             raise ValueError(f"Runner Type of experiment {exp_name} (ID: {exp_id}) not identified")
@@ -235,7 +236,7 @@ class ExperimentManager:
                 self.run_experimentation_process(experiment_to_run, tkwargs)
             except Exception as e:
                 print(e)
-        print("No more experiments to run")
+            print("No more experiments to run")
 
     def start_firestore_listener(self):
         self.logger.info("Starting Listening to Firestore...")
@@ -246,9 +247,9 @@ class ExperimentManager:
                     experiment["experiment_id"] = change.document.id
                     self.add_experiment_to_queue(experiment)
         if self.manager_id == -1:
-            col_query = self.database.db.collection(u'experiments').where(u'status',  u'in', [u'open',u'running'])
+            col_query = self.database.db.collection(u'experiments').where(u'status',  u'in', [u'open',u'running']).order_by("created_at")
         else:
-            col_query = self.database.db.collection(u'experiments').where(u'status', u'in', [u'open',u'running']).where(u'manager_id', u'==', self.manager_id)
+            col_query = self.database.db.collection(u'experiments').where(u'status', u'in', [u'open',u'running']).where(u'manager_id', u'==', self.manager_id).order_by("created_at")
         # TODO: make handler for failed experiments
         query_watch = col_query.on_snapshot(check_changes)
         self.logger.info("Checking initially for new experiments to run...")
@@ -272,15 +273,27 @@ def log_gpu_usage():
         fh.setLevel(logging.INFO)
         fh.setFormatter(logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s'))
         logger.addHandler(fh)
-        device = torch.device("cuda")
+        import subprocess
+        import re
+        command = 'nvidia-smi'
         while True:
-            logger.info("GPU usage: " + str(torch.cuda.memory_allocated()))
-            logger.info("GPU max usage: " + str(torch.cuda.max_memory_allocated()))
+            p = subprocess.check_output(command)
+            memory_usage_values = re.findall(r"\|\s+\d+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+(\d+)MiB\s+/\s+(\d+)MiB", str(p.decode("utf-8")))
+
+            # Print memory usage values
+            for i, values in enumerate(memory_usage_values):
+                used, total = values
+                perc = (int(used) / int(total))*100
+                logger.info(f"GPU {i}: Used {used} MiB, Total {total} MiB ({perc:.2%} %)")
             time.sleep(1)
+    else:
+        print("No GPU available")
 
 if __name__ == "__main__":
-
+    if len(sys.argv) < 3:
+        print("Usage: python3 experiment_manager.py <manager_id> <checking_interval>")
+        exit(1)
     manager_id = int(sys.argv[1])
     interval = int(sys.argv[2])
-    # mp.Process(target=log_gpu_usage).start() # doesnt work with WIP TODO: fix
+    mp.Process(target=log_gpu_usage).start() 
     ExperimentManager(manager_id, interval).start_firestore_listener()

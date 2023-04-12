@@ -61,7 +61,7 @@ class OptimizationAlgorithmBridge:
         if num_trials == None:
             self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)
         else:
-            self.X_next = sobol.draw(n=num_trials).to(dtype=self.dtype, device=self.device)
+            self.X_next = sobol.draw(n=int(num_trials)).to(dtype=self.dtype, device=self.device)
         self.logger.debug(f"Initial SOBOL candidates: {self.X_next}")
         return self.X_next 
     

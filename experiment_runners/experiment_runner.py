@@ -121,7 +121,7 @@ class ExperimentRunner():
             
             sigma0 = algorithm_config.get("sigma", 0.5)
 
-            return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0, num_init=num_init)
+            return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0, num_init=num_init, use_case_runner=self.use_case_runner, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         
         if self.algorithm == "sobol":
             return SobolRunner(self.experiment_id, self.replication,dim,batch_size=1, num_init=1, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
@@ -143,7 +143,7 @@ class ExperimentRunner():
             "experiment_id": self.experiment_id,
             "replication" : self.replication,
             "algorithm" : self.algorithm,
-            "bom_id" :  -1, #self.bom_id,
+            "bom_id" :  self.use_case_runner.bom_id if self.use_case_runner.bom_id != None else "na",
             "num_trials" : self.current_trial,
             "num_candidates" : len(self.candidates),
             "total_duration_seconds": self.total_duration_seconds,
@@ -151,7 +151,7 @@ class ExperimentRunner():
             "experiment_end" : self.experiment_end_dts,
             "trial_runtimes" : self.trial_runtimes_second if self.algorithm != "brute_force" else "na",
             "eval_runtimes" : self.eval_runtimes_second if self.algorithm != "brute_force" else "na",
-            "best_candidate" : self.best_candidat,
+            "best_candidat" : self.best_candidat,
             "raw_results" : self.use_case_runner.Y_raw,
             "candidates": self.candidates if self.algorithm != "brute_force" else "na",
             "final_feature_importances" : fi[-1] if fi != "na" else "na",
@@ -170,6 +170,16 @@ class ExperimentRunner():
         self.logger.info(f"Experiment data saved to >{fpath}<")
         self.results = obj
         return obj
+
+    def simulate_best_candidat_of_experiment_replication(self, experiment_id, replication=1, experiment_config=None):
+        self.config = self.database.read_experiment_from_firestore(experiment_id) if experiment_config == None else experiment_config
+        best_candidat = self.database.get_best_candidat_of_replication(experiment_id, replication) if self.best_candidat == None else self.best_candidat
+        self.use_case_runner = self.get_use_case_runner()
+        result = self.use_case_runner.eval_manually(best_candidat, skip_transform=True)
+        print(f"Result of best candidate: {result}")
+        return result
+    
+    
     
     # def log_gpu_usage(self):
     #     if self.tkwargs["device"] == "cuda":
