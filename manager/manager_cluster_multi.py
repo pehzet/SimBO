@@ -66,7 +66,7 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
         elif runner_type == "algorithm":
             erad = ExperimentRunnerAlgorithmDriven(experiment, replication, tkwargs)
             results = erad.run_optimization_loop()
-            erad.simulate_best_candidat_of_experiment_replication(exp_id, replication, experiment_config=experiment)
+            # erad.simulate_best_candidat_of_experiment_replication(exp_id, replication, experiment_config=experiment) TODO: FIX THIS
 
         else:
             raise ValueError(f"Runner Type of experiment {exp_name} (ID: {exp_id}) not identified")
@@ -269,7 +269,7 @@ def log_gpu_usage():
     if torch.cuda.is_available():
         logger = logging.getLogger("gpu_logger")
         logger.setLevel(logging.DEBUG)
-        fh = logging.FileHandler("gpu_usage.log")
+        fh = logging.FileHandler("gpu_logger.log")
         fh.setLevel(logging.INFO)
         fh.setFormatter(logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s'))
         logger.addHandler(fh)

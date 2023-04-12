@@ -27,7 +27,7 @@ class CMAESRunner(OptimizationAlgorithmBridge):
         opts.set('seed', 12345)
         # NOTE: lt. Link oben benötigt cmaes 100xdim candidates für befriedigende Ergebnisse
         self.es = cma.CMAEvolutionStrategy(self.dim*[0], sigma0=self.sigma0,inopts=opts)
-        self.nh = cma.optimization_tools.NoiseHandler(self.es, maxevals=4, aggregate=np.mean) if use_case_runner is not None else None
+        self.nh = cma.optimization_tools.NoiseHandler(self.dim, maxevals=4, aggregate=np.mean) if use_case_runner is not None else None
     def tensor_to_list(self,t):
         if torch.is_tensor(t):
             t = t.tolist()
