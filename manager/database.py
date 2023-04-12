@@ -107,8 +107,8 @@ class Database:
         
       
         try:
-            best_candidate = results.get("best_candidate",{})
-            doc_ref.set(best_candidate)
+            best_candidat = results.get("best_candidate",{})
+            doc_ref.set({"best_candidat": best_candidat})
             logger.info(f"Results written to firestore for experiment {experiment_id} Replication: {replication}")
         except Exception as e:
             logger.error(e)
