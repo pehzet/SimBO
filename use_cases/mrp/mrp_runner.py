@@ -22,9 +22,9 @@ from icecream import ic
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
 class MRPRunner():
 
-    def __init__(self, bom_id, num_sim_runs=5, stochastic_method=True):
+    def __init__(self, bom_id, num_sim_runs=5, stochastic_method='discrete'):
         self.bom_id = bom_id
-        self.num_sim_runs = num_sim_runs
+        self.num_sim_runs = int(num_sim_runs)
         self.stochastic_method = stochastic_method
         self.bom = None
         self.materials = None
