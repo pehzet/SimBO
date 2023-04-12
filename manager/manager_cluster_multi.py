@@ -66,7 +66,7 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
         elif runner_type == "algorithm":
             erad = ExperimentRunnerAlgorithmDriven(experiment, replication, tkwargs)
             results = erad.run_optimization_loop()
-            erad.simulate_best_candidate_of_experiment_replication(exp_id, replication, experiment_config=experiment)
+            erad.simulate_best_candidat_of_experiment_replication(exp_id, replication, experiment_config=experiment)
 
         else:
             raise ValueError(f"Runner Type of experiment {exp_name} (ID: {exp_id}) not identified")
