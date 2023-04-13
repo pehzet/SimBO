@@ -96,6 +96,7 @@ class MRPSimulation():
         self.stochastic_method = stochastic_method
         self.storage_costs = 0
         self.penalty_costs = 0
+        self.warm_up_periods = 50
         # self.check()
 
     def get_material_by_id(self, material_id):
@@ -176,7 +177,8 @@ class MRPSimulation():
 
     def run_simulation(self, sim_time=200):
         # range starts with 1 and ends with sim_time + 1 (from start) + 1(to calc cost of previous period in case of backorder) 
-        for period in range(1, sim_time + int(sim_time/10)):
+        for i in range(1, sim_time + self.warm_up_periods + int(sim_time/10)):
+            period = i + self.warm_up_periods
             if self.costs.sum() > 0:
                 for m in self.materials:
                     if m.quantity_in_stock > 0:

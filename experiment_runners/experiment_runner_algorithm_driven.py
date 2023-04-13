@@ -108,17 +108,20 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
 
         assert len(xx) == len(yy)
         for i, x in enumerate(xx):
-            self.current_candidat +=1
+            self.current_candidate +=1
             y = yy[i]
             ts = self.algorithm_runner.get_technical_specs()
             if self.algorithm.lower() in ["cmaes", "cma-es"]:
                 sm = 'cmaes'
                 acqf = 'cmaes'
+            elif self.algorithm.lower() in ["turbo"]:
+                sm = self.algorithm_runner.current_sm
+                acqf = self.algorithm_runner.current_acqf
             else:
-                sm = ts.get("sm", "na") if self.current_candidat > self.algorithm_runner.num_init else "init"
-                acqf = ts.get("acqf", "na") if self.current_candidat > self.algorithm_runner.num_init else "init"
+                sm = ts.get("sm", "na") if self.current_candidate > self.algorithm_runner.num_init else "init"
+                acqf = ts.get("acqf", "na") if self.current_candidate > self.algorithm_runner.num_init else "init"
             self.candidates.append({
-                "id" : self.current_candidat,
+                "id" : self.current_candidate,
                 "sm" : sm,
                 "acqf" : acqf,
                 "tr" : self.algorithm_runner.get_tr(),
@@ -127,7 +130,7 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
                 "fi" : self.use_case_runner.format_feature_importance(self.algorithm_runner.get_feature_importance()),
                 "ei" : "na",
                 "y_pred" : "na",
-                "acq_value" : self.algorithm_runner.get_acq_value((self.current_candidat - self.algorithm_runner.num_init - 1))
+                "acq_value" : self.algorithm_runner.get_acq_value((self.current_candidate - self.algorithm_runner.num_init - 1))
             })
     
 
@@ -224,7 +227,7 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
         self.experiment_end_dts = datetime.now().isoformat()
         self.total_duration_seconds =  _end -_start
         self.database.update_replication_progress(self.experiment_id, self.replication, eval_counter, self.eval_budget)
-        self.best_candidat = self.get_best_candidate()
+        self.best_candidate = self.get_best_candidate()
         self.feature_importances = self.algorithm_runner.get_feature_importance(all=True)
         
         self.algorithm_runner.terminate_experiment()

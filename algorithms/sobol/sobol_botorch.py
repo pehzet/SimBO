@@ -13,7 +13,7 @@ class SobolRunner(OptimizationAlgorithmBridge):
     def suggest_initial(self):
         return self.suggest()
     def suggest(self):
-        sobol = SobolEngine(dimension=self.dim, scramble=True, seed=None) # set seed to None so it would be random.
+        sobol = SobolEngine(dimension=self.dim, scramble=True, seed=self.seed) # set seed to None so it would be random.
         self.X_next = sobol.draw(n=self.eval_budget).to(dtype=self.dtype, device=self.device)
         self.logger.debug(f"SOBOL candidates: {self.X_next}")
         return self.X_next 

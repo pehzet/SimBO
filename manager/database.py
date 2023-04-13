@@ -58,7 +58,7 @@ class Database:
         else:
             return None
 
-    def get_best_candidat_of_replication(self, experiment_id, replication):
+    def get_best_candidate_of_replication(self, experiment_id, replication):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id)).collection(u"results").document("Replication_" + str(replication))
         doc = doc_ref.get()
         if doc.exists:
@@ -107,8 +107,8 @@ class Database:
         
       
         try:
-            best_candidat = results.get("best_candidate",{})
-            doc_ref.set({"best_candidat": best_candidat})
+            best_candidate = results.get("best_candidate", results.get("best_candidat", {}))
+            doc_ref.set({"best_candidate": best_candidate})
             logger.info(f"Results written to firestore for experiment {experiment_id} Replication: {replication}")
         except Exception as e:
             logger.error(e)

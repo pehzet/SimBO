@@ -37,7 +37,7 @@ class OptimizationAlgorithmBridge:
         self.batch_runtimes = list()
         self.num_restarts = 0
         self.eval_runtimes_second = list()
-        self.seed = 12345
+        self.seed = None
         self.eval_budget = None
         self.device=device
         self.dtype=dtype
@@ -56,7 +56,7 @@ class OptimizationAlgorithmBridge:
         return None
     def suggest_initial(self, num_trials = None):
         self.is_init = True
-        sobol = SobolEngine(dimension=self.dim, scramble=True, seed=0)
+        sobol = SobolEngine(dimension=self.dim, scramble=True, seed=self.seed)
         self.logger.info(f"Running SOBOL on device: {self.device}")
         if num_trials == None:
             self.X_next = sobol.draw(n=self.num_init).to(dtype=self.dtype, device=self.device)

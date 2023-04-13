@@ -102,20 +102,20 @@ class ExperimentRunnerSimulationDriven(ExperimentRunner):
 
         assert len(xx) == len(yy)
         for i, x in enumerate(xx):
-            self.current_candidat +=1
+            self.current_candidate +=1
             y = yy[i]
             ts = self.algorithm_runner.get_technical_specs()
             self.candidates.append({
-                "id" : self.current_candidat,
-                "sm" : ts.get("sm", "na") if self.current_candidat > self.algorithm_runner.num_init else "init",
-                "acqf" : ts.get("acqf", "na") if self.current_candidat > self.algorithm_runner.num_init else "init",
+                "id" : self.current_candidate,
+                "sm" : ts.get("sm", "na") if self.current_candidate > self.algorithm_runner.num_init else "init",
+                "acqf" : ts.get("acqf", "na") if self.current_candidate > self.algorithm_runner.num_init else "init",
                 "tr" : self.algorithm_runner.get_tr(),
                 "x" : self.use_case_runner.format_x_for_candidate(x),
                 "y" : self.use_case_runner.format_y_for_candidate(y),
                 "fi" : self.use_case_runner.format_feature_importance(self.algorithm_runner.get_feature_importance()),
                 "ei" : "na",
                 "y_pred" : "na",
-                "acq_value" : self.algorithm_runner.get_acq_value((self.current_candidat - self.algorithm_runner.num_init - 1))
+                "acq_value" : self.algorithm_runner.get_acq_value((self.current_candidate - self.algorithm_runner.num_init - 1))
             })
     
 

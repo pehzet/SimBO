@@ -63,11 +63,11 @@ class ExperimentRunner():
       
         self.feature_importances = list()
         self.candidates = list()
-        self.best_candidat = None
+        self.best_candidate = None
 
         self.first_log_done = False
         
-        self.current_candidat = 0
+        self.current_candidate = 0
         self.current_trial = 0
         self.current_arm = 0
         self.current_x = None
@@ -152,7 +152,7 @@ class ExperimentRunner():
             "experiment_end" : self.experiment_end_dts,
             "trial_runtimes" : self.trial_runtimes_second if self.algorithm != "brute_force" else "na",
             "eval_runtimes" : self.eval_runtimes_second if self.algorithm != "brute_force" else "na",
-            "best_candidat" : self.best_candidat,
+            "best_candidate" : self.best_candidate,
             "raw_results" : self.use_case_runner.Y_raw,
             "candidates": self.candidates if self.algorithm != "brute_force" else "na",
             "final_feature_importances" : fi[-1] if fi != "na" else "na",
@@ -174,9 +174,9 @@ class ExperimentRunner():
 
     def simulate_best_candidat_of_experiment_replication(self, experiment_id, replication=1, experiment_config=None):
         self.config = self.database.read_experiment_from_firestore(experiment_id) if experiment_config == None else experiment_config
-        best_candidat = self.database.get_best_candidat_of_replication(experiment_id, replication) if self.best_candidat == None else self.best_candidat
+        best_candidate = self.database.get_best_candidate_of_replication(experiment_id, replication) if self.best_candidate == None else self.best_candidate
         self.use_case_runner = self.get_use_case_runner()
-        result = self.use_case_runner.eval_manually(best_candidat, skip_transform=True)
+        result = self.use_case_runner.eval_manually(best_candidate, skip_transform=True)
         print(f"Result of best candidate: {result}")
         return result
     

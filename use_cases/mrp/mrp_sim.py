@@ -167,7 +167,6 @@ class MRPSimulation():
             weights = [60,5,3,2]
             assert len(values) == len(weights)
             value = random.choices(values, weights,k=1)
-
             return value[0]
         if self.stochastic_method in ["deterministic", "None", None]:
             return 0
