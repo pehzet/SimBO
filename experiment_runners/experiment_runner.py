@@ -122,7 +122,8 @@ class ExperimentRunner():
             
             sigma0 = algorithm_config.get("sigma", 0.5)
 
-            ucr = self.use_case_runner if self.use_case_runner.stochastic_method != 'deterministic' else None
+            # ucr = self.use_case_runner if self.use_case_runner.stochastic_method != 'deterministic' else None
+            ucr = None # Problems with tensors using noise handling at cma. Will be fixed later /PZM 2023-04-14
             return CMAESRunner(self.experiment_id, self.replication, dim, batch_size,self.use_case_runner.bounds,sigma0, num_init=num_init, use_case_runner=ucr, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         
         if self.algorithm == "sobol":
@@ -156,6 +157,8 @@ class ExperimentRunner():
             "eval_runtimes" : self.eval_runtimes_second if self.algorithm != "brute_force" else "na",
             "best_candidate" : self.best_candidate,
             "raw_results" : self.use_case_runner.Y_raw,
+            "stochastic_method" : self.use_case_runner.stochastic_method,
+            "num_sim_runs" : self.use_case_runner.num_sim_runs,
             "candidates": self.candidates if self.algorithm != "brute_force" else "na",
             "final_feature_importances" : fi[-1] if fi != "na" else "na",
             "feature_importances" : fi if self.algorithm != "brute_force" else "na"
