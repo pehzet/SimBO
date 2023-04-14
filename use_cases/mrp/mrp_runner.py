@@ -1,10 +1,7 @@
 
 # from utils import *
 from copy import deepcopy
-import os
 import logging
-
-
 logger = logging.getLogger("mrp")
 import config
 # from main import run_solver
@@ -63,7 +60,7 @@ class MRPRunner():
     def eval_manually(self, x, skip_transform=False):
         if not skip_transform:
             x = self.transform_x(x)
-
+    
         releases = self.run_solver(x)
         results = list()
         for _ in range(self.num_sim_runs):
@@ -91,24 +88,31 @@ class MRPRunner():
     def format_x_for_candidate(self, x):
         return self.transform_x(x)
 
+    def unnormalize_discrete(self, x):
+        dx = np.linspace(self.bounds[0], self.bounds[1], self.bounds[1] - self.bounds[0] + 1)[1:-1]
+        return np.digitize(x, dx)
+
     def transform_x(self, x):
         assert self.param_meta is not None
         assert self.bounds is not None
-        try:
-            x = unnormalize(x, bounds=self.bounds)
-        except:
-            logger.debug("x or bounds are not tensors. Converting all to tensors...")
-            x = tensor(x).to(tkwargs["device"])
-            self.bounds = tensor(self.bounds).to(tkwargs["device"])
-            x = unnormalize(x, bounds=self.bounds)
+        # try:
+        #     discrete_space = np.linspace(0, 1, self.bounds[1] - self.bounds[0] + 1)[1:-1]
+        #     x = [np.digitize(_x, discrete_space) for _x in x]
+        # except:
+        #     logger.debug("x or bounds are not tensors. Converting all to tensors...")
+        #     x = tensor(x).to(tkwargs["device"])
+        #     self.bounds = tensor(self.bounds).to(tkwargs["device"])
+        #     discrete_space = np.linspace(0, 1, self.bounds[1] - self.bounds[0] + 1)[1:-1]
+        #     x = [np.digitize(_x, discrete_space) for _x in x]
         x_mrp = []
         for i,pm in enumerate(self.param_meta):
-
+            discrete_space = np.linspace(0, 1, self.bounds[1][i] - self.bounds[0][i] + 1)[1:-1]
+            xd = np.digitize(x[i], discrete_space)
             x_mrp.append(
                 {   
                 "id" : pm.get("name").split("_",1)[0],
                 "name" : pm.get("name").split("_",1)[1],
-                "value" : int(round(x[i].item()))
+                "value" : int(xd)
                 }
             )
 

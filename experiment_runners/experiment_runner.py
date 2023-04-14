@@ -146,6 +146,7 @@ class ExperimentRunner():
             "algorithm" : self.algorithm,
             "bom_id" :  self.use_case_runner.bom_id if self.use_case_runner.bom_id != None else "na",
             "num_trials" : self.current_trial,
+            "eval_budget" : self.eval_budget,
             "num_candidates" : len(self.candidates),
             "total_duration_seconds": self.total_duration_seconds,
             "experiment_start" : self.experiment_start_dts,
