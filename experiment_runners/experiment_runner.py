@@ -96,6 +96,7 @@ class ExperimentRunner():
         
         self.algorithm = algorithm_config.get("strategy", algorithm_config.get("algorithm")).lower()
         self.eval_budget = int(self.config.get("budget", self.config.get("evaluation_budget")))
+        self.inital_budget = self.eval_budget
         # num_init = algorithm_config.get("n_init", algorithm_config.get("num_init", algorithm_config.get("init_arms", 1)))
         num_init = int(self.config.get("init_arms", 1))
         batch_size = int(self.config.get("batch_size"))
@@ -146,7 +147,7 @@ class ExperimentRunner():
             "algorithm" : self.algorithm,
             "bom_id" :  self.use_case_runner.bom_id if self.use_case_runner.bom_id != None else "na",
             "num_trials" : self.current_trial,
-            "eval_budget" : self.eval_budget,
+            "eval_budget" : self.inital_budget,
             "num_candidates" : len(self.candidates),
             "total_duration_seconds": self.total_duration_seconds,
             "experiment_start" : self.experiment_start_dts,
