@@ -136,6 +136,7 @@ class ExperimentManager:
             self.logger.error(f"Error while running experiment {exp_name} (ID: {exp_id}) ")
             self.logger.error(e)
             self.close_experiment(experiment, failed=True)
+            self.gpu_free = True
           
 
     def close_experiment(self, experiment, failed=False):
