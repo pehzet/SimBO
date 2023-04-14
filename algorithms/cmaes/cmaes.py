@@ -24,7 +24,7 @@ class CMAESRunner(OptimizationAlgorithmBridge):
             self.trial_size = 2
         opts.set('bounds', self.bounds)
         opts.set('popsize', self.trial_size)
-        opts.set('seed', self.seed)
+        # opts.set('seed', self.seed)
         # NOTE: lt. Link oben benötigt cmaes 100xdim candidates für befriedigende Ergebnisse
         self.es = cma.CMAEvolutionStrategy(np.random.uniform(0, 1,size=self.dim), sigma0=self.sigma0,inopts=opts) # was self.dim*[0]
         self.nh = cma.optimization_tools.NoiseHandler(self.dim, maxevals=4, aggregate=np.mean) if use_case_runner is not None else None
