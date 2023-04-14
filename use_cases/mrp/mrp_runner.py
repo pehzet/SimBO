@@ -107,7 +107,7 @@ class MRPRunner():
         x_mrp = []
         for i,pm in enumerate(self.param_meta):
             discrete_space = np.linspace(0, 1, self.bounds[1][i] - self.bounds[0][i] + 1)[1:-1]
-            xd = np.digitize(x[i], discrete_space)
+            xd = np.digitize(x[i].cpu().numpy(), discrete_space)
             x_mrp.append(
                 {   
                 "id" : pm.get("name").split("_",1)[0],
