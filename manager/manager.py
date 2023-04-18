@@ -251,17 +251,13 @@ class ExperimentManager:
                     original_experiment = exp.to_dict()
                     for i in range(int(original_experiment.get("replications_fulfilled")), int(original_experiment.get("replications"))):
                         experiment = copy.deepcopy(original_experiment)
-                        ic(experiment.get("replications_fulfilled", 0))
-                        ic(experiment.get("current_replication", 0))
                         if experiment.get("replications_fulfilled", 0) + (i+1) == experiment.get("current_replication", 0):
                             continue
                         else:
                             experiment["experiment_id"] = exp.id
                             experiment["current_replication"] = experiment.get("replications_fulfilled", 0) + (i+1)
                             experiment["runner_type"] = self.identify_runner_type(experiment)
-                            ic(experiment)
                             exp_in_this_loop.append(experiment)
-                ic(exp_in_this_loop)
                 if len(exp_in_this_loop) > 0:
                     self.logger.info(f"Found {len(exp_in_this_loop)} experiment replications to run")
                     self.checking_interval = initial_checking_interval
