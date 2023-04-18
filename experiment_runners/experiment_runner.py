@@ -33,7 +33,6 @@ from algorithms.sobol.sobol_botorch import SobolRunner
 from algorithms.brute_force.brute_force import BruteForceRunner
 from use_cases.mrp.mrp_runner import MRPRunner
 from use_cases.pfp.pfp_runner import PfpRunner
-from manager.database import Database
 
 import torch
 
@@ -46,7 +45,7 @@ class ExperimentRunner():
         self.experiment_id = experiment.get("experiment_id")
         self.replication = replication
         self.tkwargs = tkwargs
-        self.database = Database()
+        # self.database = Database()
         self.logger =logging.getLogger("runner")
         try:
             self.logger.addHandler(self.tkwargs["logging_fh"])
@@ -159,6 +158,7 @@ class ExperimentRunner():
             "raw_results" : self.use_case_runner.Y_raw,
             "stochastic_method" : self.use_case_runner.stochastic_method,
             "num_sim_runs" : self.use_case_runner.num_sim_runs,
+            "device" : self.tkwargs["device"],
             "candidates": self.candidates if self.algorithm != "brute_force" else "na",
             "final_feature_importances" : fi[-1] if fi != "na" else "na",
             "feature_importances" : fi if self.algorithm != "brute_force" else "na"
@@ -177,13 +177,13 @@ class ExperimentRunner():
         self.results = obj
         return obj
 
-    def simulate_best_candidat_of_experiment_replication(self, experiment_id, replication=1, experiment_config=None):
-        self.config = self.database.read_experiment_from_firestore(experiment_id) if experiment_config == None else experiment_config
-        best_candidate = self.database.get_best_candidate_of_replication(experiment_id, replication) if self.best_candidate == None else self.best_candidate
-        self.use_case_runner = self.get_use_case_runner()
-        result = self.use_case_runner.eval_manually(best_candidate, skip_transform=True)
-        print(f"Result of best candidate: {result}")
-        return result
+    # def simulate_best_candidat_of_experiment_replication(self, experiment_id, replication=1, experiment_config=None):
+    #     self.config = self.database.get_experiment_from_firestore(experiment_id) if experiment_config == None else experiment_config
+    #     best_candidate = self.database.get_best_candidate_of_replication(experiment_id, replication) if self.best_candidate == None else self.best_candidate
+    #     self.use_case_runner = self.get_use_case_runner()
+    #     result = self.use_case_runner.eval_manually(best_candidate, skip_transform=True)
+    #     print(f"Result of best candidate: {result}")
+    #     return result
     
     
     

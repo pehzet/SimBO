@@ -118,8 +118,8 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
                 sm = self.algorithm_runner.current_sm
                 acqf = self.algorithm_runner.current_acqf
             else:
-                sm = ts.get("sm", "na") if self.current_candidate > self.algorithm_runner.num_init else "init"
-                acqf = ts.get("acqf", "na") if self.current_candidate > self.algorithm_runner.num_init else "init"
+                sm = ts.get("sm", "na") if self.current_candidate > self.algorithm_runner.num_init else "sobol"
+                acqf = ts.get("acqf", "na") if self.current_candidate > self.algorithm_runner.num_init else "sobol"
             self.candidates.append({
                 "id" : self.current_candidate,
                 "sm" : sm,

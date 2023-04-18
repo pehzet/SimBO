@@ -200,24 +200,28 @@ class ExperimentManager:
             return
         # Copy to remove elements while iterating
         # processes = copy.deepcopy(self.processes_running)
-        processes = self.processes_running
         processes_to_rm = []
-        for process in processes:
+        for process in self.processes_running:
             p = process.get("process")
             if not p.is_alive():
-                exp_id = process.get("experiment_id")
-                replication = process.get("current_replication")
-                self.database.update_replication_at_firestore(exp_id, replication)
-                self.database.write_result_to_firestore(exp_id, replication)
-                self.database.write_all_files_to_storage(exp_id)
-                if replication >= process.get("replications"):
-                    experiment = process.get("experiment")
-                    self.close_experiment(experiment)
-                
-                # self.processes_running.remove(process)
-                # self.available_gpus.put(process.get("gpu"))
-                self.gpu_free = True
-                processes_to_rm.append(process)
+                try:
+                    exp_id = process.get("experiment_id")
+                    replication = process.get("current_replication")
+                    self.database.write_result_to_firestore(exp_id, replication)
+                    self.database.write_all_files_to_storage(exp_id)
+                    self.database.update_replication_at_firestore(exp_id, replication)
+                    if replication >= process.get("replications"):
+                        experiment = process.get("experiment")
+                        self.close_experiment(experiment)
+                    
+                    # self.processes_running.remove(process)
+                    # self.available_gpus.put(process.get("gpu"))
+                    self.gpu_free = True
+                    processes_to_rm.append(process)
+                    self.logger.info(f"Process finished within manager {self.manager_id}: Replication {replication} of experiment {process.get('experiment_name')} (ID: {exp_id})")
+                except Exception as e:
+                    self.logger.error("Error while closing experiment")
+                    self.logger.error(e)
                 # p.close()
         for rmp in processes_to_rm:
             self.processes_running.remove(rmp)
@@ -267,13 +271,13 @@ class ExperimentManager:
     
 
 def log_gpu_usage():
+    logger = logging.getLogger("gpu_logger")
+    logger.setLevel(logging.info)
+    fh = logging.FileHandler("gpu_logger.log")
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s'))
+    logger.addHandler(fh)
     if torch.cuda.is_available():
-        logger = logging.getLogger("gpu_logger")
-        logger.setLevel(logging.DEBUG)
-        fh = logging.FileHandler("gpu_logger.log")
-        fh.setLevel(logging.INFO)
-        fh.setFormatter(logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s'))
-        logger.addHandler(fh)
         import subprocess
         import re
         command = 'nvidia-smi'
@@ -288,7 +292,7 @@ def log_gpu_usage():
                 logger.info(f"GPU {i}: Used {used} MiB, Total {total} MiB ({perc:.2%} %)")
             time.sleep(1)
     else:
-        print("No GPU available")
+        logger.info("No GPU available")
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:

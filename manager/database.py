@@ -42,7 +42,7 @@ class Database:
         })
     def init_firestore(self):
         return firestore.client()
-    
+
     def init_storage(self):
         return storage.bucket()
 
@@ -50,7 +50,7 @@ class Database:
         doc_ref = self.db.collection(u'experiments').document(str(experiment.get("experiment_id")))
         doc_ref.set(experiment)
 
-    def read_experiment_from_firestore(self, experiment_id):
+    def get_experiment_from_firestore(self, experiment_id):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
         doc = doc_ref.get()
         if doc.exists:
@@ -87,7 +87,24 @@ class Database:
     def update_replication_at_firestore(self, experiment_id, replication):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
         doc_ref.update({u'replications_fulfilled': replication})
-
+    def update_current_replication_at_firestore(self, experiment_id, replication):
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
+        doc_ref.update({u'current_replication': replication})
+    def check_experiment_status(self, experiment_id, status_to_check=None):
+        '''
+        Returns status if status_to_check is None else returns True if status is equal to status_to_check.
+        Returns None if experiment_id does not exist.
+        '''
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
+        doc = doc_ref.get()
+        if doc.exists:
+            exp_status = doc.to_dict().get("status")
+            if status_to_check is None:
+                return exp_status
+            return exp_status == str(status_to_check)
+                 
+        else:
+            return None
     def write_result_to_firestore(self, experiment_id, replication, results=None):
         
         if results == None:
@@ -139,28 +156,44 @@ class Database:
         except Exception as e:
             logger.error(e)
             logger.error(f"Error writing files to storage for experiment {exp_id}")
-            
+
+    def check_if_local_files_exist(self, experiment_id, replication):
+        if None in [experiment_id, replication]:
+            logger.error("Experiment id or replication is None")
+            return False
+        dir_path = os.path.join(self.main_dir,'manager','data')
+        exp_string = "experiment_"+str(experiment_id)
+        result_path = os.path.join(dir_path, exp_string, exp_string+"_" + str(replication)+".json")
+        return os.path.exists(result_path)
     
     def update_replication_progress(self, experiment_id, replication, current_arm, budget):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
 
         doc_ref.update({f'replication_progress.{str(replication)}' : current_arm })
 
-def get_all_files_from_folder():
-    # folder path
+    def check_database_for_experiments(self, manager_id=-1, limit=1):
+        if manager_id == -1:
+            experiments = self.db.collection(u'experiments').where(u'status', u'in', [u'open', 'running']).order_by("priority_value", direction=firestore.Query.DESCENDING).order_by("created_at").limit(limit).get()
+        else:
+            experiments = self.db.collection(u'experiments').where(u'status', u'in', [u'open', 'running']).where(u'manager_id', u'==', manager_id).order_by("priority_value", direction=firestore.Query.DESCENDING).order_by("created_at").limit(limit).get()
+        return experiments
 
-    dir_path = r'C:\code\SimBO\data'
-    db = Database()
+
+# def get_all_files_from_folder():
+#     # folder path
+
+#     dir_path = r'C:\code\SimBO\data'
+#     db = Database()
 
 
-    # Iterate directory
-    for folder in os.listdir(dir_path):
-        # check if current path is a file
-        pathes = os.path.join(dir_path, folder)
-        for path in os.listdir(pathes):
-            if os.path.isfile(os.path.join(pathes, path)):
-                if path.endswith(".json"):
-                    with open(os.path.join(pathes, path)) as json_file:
-                        data = json.load(json_file)
-                        db.write_result_to_firestore(data.get("experiment_id"), 1, data)
+#     # Iterate directory
+#     for folder in os.listdir(dir_path):
+#         # check if current path is a file
+#         pathes = os.path.join(dir_path, folder)
+#         for path in os.listdir(pathes):
+#             if os.path.isfile(os.path.join(pathes, path)):
+#                 if path.endswith(".json"):
+#                     with open(os.path.join(pathes, path)) as json_file:
+#                         data = json.load(json_file)
+#                         db.write_result_to_firestore(data.get("experiment_id"), 1, data)
 

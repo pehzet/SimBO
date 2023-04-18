@@ -81,8 +81,8 @@ class TurboRunner(OptimizationAlgorithmBridge):
         self.logger.info(f"Running on device: {self.device} and dtype: {self.dtype}")
 
         self.sm = sm 
-        self.current_sm = "init"
-        self.current_acqf = "init"
+        self.current_sm = "sobol"
+        self.current_acqf = "sobol"
         self.acqf = "ts" # TODO: make configuable later
         self.X_all = None
     
@@ -105,8 +105,8 @@ class TurboRunner(OptimizationAlgorithmBridge):
         self.is_init = False
         if self.state.restart_triggered:
             self.restart_state()
-            self.current_sm = "init"
-            self.current_acqf = "init"
+            self.current_sm = "sobol"
+            self.current_acqf = "sobol"
             self.X_next = self.suggest_initial(int(math.floor(self.num_init/2)))
             return self.X_next
         # Standarize Y and normalize Noise as said here: https://botorch.org/api/models.html#botorch.models.gp_regression.SingleTaskGP
