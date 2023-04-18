@@ -51,13 +51,14 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
     tkwargs["logging_fh"] = fh
     logger.addHandler(fh)
     results = None
+    main_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
     try:
         runner_type = experiment.get("runner_type")
         if runner_type == "simulation":
-            ersd = ExperimentRunnerSimulationDriven(experiment, replication, tkwargs)
+            ersd = ExperimentRunnerSimulationDriven(experiment, replication, tkwargs, Database(main_dir))
             results = ersd.init_flask()
         elif runner_type == "algorithm":
-            erad = ExperimentRunnerAlgorithmDriven(experiment, replication, tkwargs)
+            erad = ExperimentRunnerAlgorithmDriven(experiment, replication, tkwargs, Database(main_dir))
             results = erad.run_optimization_loop()
         else:
             raise ValueError(f"Runner Type of experiment {exp_name} (ID: {exp_id}) not identified")
@@ -105,7 +106,7 @@ class ExperimentManager:
         self.experiments_running.put(experiment)
         gpu = self.gpus_available.pop(0)
         try:
-            p = mp.Process(target=send_experiment_to_runner, args=(experiment, current_replication, tkwargs,))
+            p = mp.Process(target=send_experiment_to_runner, args=(experiment, current_replication, tkwargs, ))
             p.start()
 
             process_dict = {
@@ -236,6 +237,7 @@ class ExperimentManager:
                 self.logger.info("Checking for new experiments to run...")
                 experiments = self.database.check_database_for_experiments(self.manager_id, len(self.gpus_available))
                 if len(experiments) == 0:
+                    self.logger.info(f"No experiments found. Waiting {self.checking_interval} seconds")
                     no_experiment_counter += 1
                     if self.checking_interval > initial_checking_interval*5:
                         self.checking_interval = initial_checking_interval*5
@@ -248,32 +250,30 @@ class ExperimentManager:
                 for exp in experiments:
                     experiment = exp.to_dict()
                     for i in range(int(experiment.get("replications_fulfilled")), int(experiment.get("replications"))):
-                        if experiment.get("replications_fulfilled", 0) + 1 == experiment.get("current_replication", 0):
+                        if experiment.get("replications_fulfilled", 0) + (i+1) == experiment.get("current_replication", 0):
                             continue
                         else:
                             experiment["experiment_id"] = exp.id
-                            experiment["current_replication"] = experiment.get("replications_fulfilled", 0) + 1
+                            experiment["current_replication"] = experiment.get("replications_fulfilled", 0) + (i+1)
                             experiment["runner_type"] = self.identify_runner_type(experiment)
-                        exp_in_this_loop.append(experiment)
-                for i in range(len(self.gpus_available)):
-                    self.run_experimentation_process(exp_in_this_loop[i])
+                            exp_in_this_loop.append(experiment)
+                if len(exp_in_this_loop) > 0:
+                    self.logger.info(f"Found {len(exp_in_this_loop)} experiments to run")
+                    self.checking_interval = initial_checking_interval
+                    for i in range(len(self.gpus_available)):
+                        self.run_experimentation_process(exp_in_this_loop[i])
             time.sleep(max(self.checking_interval,10))
-
-    # TODO: Put in database class
-
-
-
 
 
 def log_gpu_usage():
     logger = logging.getLogger("gpu_logger")
     logger.setLevel(logging.INFO)
     fh = logging.FileHandler("gpu_logger.log")
-    fh.setLevel(logging.DEBUG)
+    fh.setLevel(logging.INFO)
     fh.setFormatter(logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s'))
     logger.addHandler(fh)
     logger.info("Starting GPU logger")
-    
+    logger.propagate = False
     try:
         if torch.cuda.is_available():
             import subprocess
@@ -286,8 +286,8 @@ def log_gpu_usage():
                 for i, values in enumerate(memory_usage_values):
                     used, total = values
                     perc = (int(used) / int(total))*100
-                    logger.debug(f"GPU {i}: Used {used} MiB, Total {total} MiB ({perc:.2%} %)")
-                time.sleep(1)
+                    logger.info(f"GPU {i}: Used {used} MiB, Total {total} MiB ({perc:.2%} %)")
+                time.sleep(2)
         else:
             logger.info("No GPU available")
     except Exception as e:
