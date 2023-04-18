@@ -287,6 +287,31 @@ def log_gpu_usage():
                     used, total = values
                     perc = (int(used) / int(total))*100
                     logger.info(f"GPU {i}: Used {used} MiB, Total {total} MiB ({perc:.2%} %)")
+                logger.info(str(p.decode("utf-8")))
+                import pynvml
+
+                # Initialize NVML library
+                pynvml.nvmlInit()
+
+                # Get the number of GPUs available
+                deviceCount = pynvml.nvmlDeviceGetCount()
+
+                for i in range(deviceCount):
+                    # Get the GPU handle
+                    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+
+                    # Get the memory information
+                    meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+
+                    # Print the memory usage
+                    print(f"GPU {i} Memory Usage:")
+                    print(f"Used: {meminfo.used / 1024**2} MiB")
+                    print(f"Free: {meminfo.free / 1024**2} MiB")
+                    print(f"Total: {meminfo.total / 1024**2} MiB")
+
+                # Shutdown NVML library
+                pynvml.nvmlShutdown()
+                
                 time.sleep(2)
         else:
             logger.info("No GPU available")
