@@ -262,7 +262,6 @@ class ExperimentManager:
                     self.logger.info(f"Found {len(exp_in_this_loop)} experiment replications to run")
                     self.checking_interval = initial_checking_interval
                     for i in range(len(self.gpus_available)):
-                        exit()
                         self.run_experimentation_process(exp_in_this_loop[i])
             time.sleep(max(self.checking_interval,10))
 
