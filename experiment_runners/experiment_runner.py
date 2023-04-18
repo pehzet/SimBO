@@ -139,7 +139,10 @@ class ExperimentRunner():
             return PfpRunner()
     def save_experiment_json(self):
         fi = self.use_case_runner.format_feature_importance(self.feature_importances)
-
+        try:
+            device = str(self.tkwargs["device"].type)
+        except:
+            device = "na"
         obj = {
             "experiment_id": self.experiment_id,
             "replication" : self.replication,
@@ -157,7 +160,7 @@ class ExperimentRunner():
             "raw_results" : self.use_case_runner.Y_raw,
             "stochastic_method" : self.use_case_runner.stochastic_method,
             "num_sim_runs" : self.use_case_runner.num_sim_runs,
-            "device" : self.tkwargs["device"],
+            "device" : device,
             "candidates": self.candidates if self.algorithm != "brute_force" else "na",
             "final_feature_importances" : fi[-1] if fi != "na" else "na",
             "feature_importances" : fi if self.algorithm != "brute_force" else "na"

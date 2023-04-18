@@ -96,13 +96,14 @@ class ExperimentManager:
     def gpu_free(self):
         return len(self.gpus_available) > 0
     def run_experimentation_process(self, experiment: dict):
-        self.database.update_current_replication_at_firestore(experiment.get("experiment_id"), experiment.get("current_replication", 1))
+        
         tkwargs = {"device": torch.device(f"cuda" if torch.cuda.is_available() and not experiment.get("use_cpu", False) else "cpu"), "dtype": self.dtype}
         exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
         exp_id = experiment.get("experiment_id")
         self.logger.info("Running experiment: " + str(exp_name))
         self.logger.info("Execution time is: " + str(experiment.get("execution_datetime")))
         current_replication = experiment.get("current_replication", 1)
+        self.database.update_current_replication_at_firestore(exp_id, current_replication)
         self.experiments_running.put(experiment)
         gpu = self.gpus_available.pop(0)
         try:
@@ -249,13 +250,13 @@ class ExperimentManager:
                 exp_in_this_loop = []
                 for exp in experiments:
                     original_experiment = exp.to_dict()
-                    for i in range(int(original_experiment.get("replications_fulfilled")), int(original_experiment.get("replications"))):
+                    for i in range(1, int(original_experiment.get("replications"))- int(original_experiment.get("replications_fulfilled")) + 1 ):
                         experiment = copy.deepcopy(original_experiment)
-                        if experiment.get("replications_fulfilled", 0) + (i+1) == experiment.get("current_replication", 0):
+                        if experiment.get("replications_fulfilled", 0) + i == experiment.get("current_replication", 0):
                             continue
                         else:
                             experiment["experiment_id"] = exp.id
-                            experiment["current_replication"] = experiment.get("replications_fulfilled", 0) + (i+1)
+                            experiment["current_replication"] = experiment.get("replications_fulfilled", 0) + i
                             experiment["runner_type"] = self.identify_runner_type(experiment)
                             exp_in_this_loop.append(experiment)
                 if len(exp_in_this_loop) > 0:
