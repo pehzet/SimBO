@@ -80,8 +80,8 @@ class FlaskWrapper(object):
 
 
 class ExperimentRunnerSimulationDriven(ExperimentRunner):
-    def __init__(self, experiment, replication, tkwargs):
-        super().__init__(experiment, replication, tkwargs)
+    def __init__(self, experiment, replication, tkwargs, database):
+        super().__init__(experiment, replication, tkwargs, database)
         # self.init_flask()
 
 

@@ -33,7 +33,6 @@ from algorithms.sobol.sobol_botorch import SobolRunner
 from algorithms.brute_force.brute_force import BruteForceRunner
 from use_cases.mrp.mrp_runner import MRPRunner
 from use_cases.pfp.pfp_runner import PfpRunner
-
 import torch
 
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
@@ -41,11 +40,11 @@ tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"
 from icecream import ic
 class ExperimentRunner():
 
-    def __init__(self, experiment, replication, tkwargs) -> None:
+    def __init__(self, experiment, replication, tkwargs, database) -> None:
         self.experiment_id = experiment.get("experiment_id")
         self.replication = replication
         self.tkwargs = tkwargs
-        # self.database = Database()
+        self.database = database
         self.logger =logging.getLogger("runner")
         try:
             self.logger.addHandler(self.tkwargs["logging_fh"])
