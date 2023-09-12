@@ -1,7 +1,9 @@
 import torch
 import logging
-
-
+from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.models.transforms.outcome import Standardize
+from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from torch.quasirandom import SobolEngine
 from pathlib import Path
 import pickle
@@ -15,6 +17,7 @@ class OptimizationAlgorithmBridge:
         self.experiment_id = experiment_id
         self.replication = replication
         self.dim = dim
+        self.is_ea = False
         self.num_init = dim * 2 if num_init == -1 else num_init
         self.trial_size = trial_size
         self.logger = logging.getLogger("algorithm")
@@ -32,7 +35,7 @@ class OptimizationAlgorithmBridge:
         self.Y_current_best = None
         self.acq_values = None
         self.minimize = True
-
+        self.is_moo = False
         self.total_runtime = 0
         self.batch_runtimes = list()
         self.num_restarts = 0
@@ -42,16 +45,16 @@ class OptimizationAlgorithmBridge:
         self.device=device
         self.dtype=dtype
         # NOTE: only inequality constraints implemented
-        self.constraints = self.constraints_to_tensor(constraints)
+        self.constraints = constraints #self.constraints_to_tensor(constraints)
         self.lengthscales = None
         self.is_init = True
-      
     
     def constraints_to_tensor(self, constraints):
         if constraints is not None:
             _constraints = []
-            for c in constraints:
-                _constraints.append((tensor(c[0], dtype=torch.int64), tensor(c[1], dtype=self.dtype), float(c[2])))
+            for c in constraints["ieq"]:
+                ic(c)
+                _constraints.append((tensor(c[0], dtype=torch.int64), tensor(c[1], dtype=self.dtype)))
             return _constraints
         return None
     def suggest_initial(self, num_trials = None):
@@ -66,6 +69,7 @@ class OptimizationAlgorithmBridge:
         return self.X_next 
     
     def identity_best_in_trial(self):
+
         best_in_trial = max(self.Y_next).item() # TODO: Think about general way to handle min and max
         if self.Y_current_best == None:
             self.Y_current_best = best_in_trial
@@ -77,9 +81,16 @@ class OptimizationAlgorithmBridge:
                 self.logger.info(f"New best Y found: {self.Y_current_best*-1 if self.minimize else self.Y_current_best}")
 
     def complete(self, y, yvar = None):
-        self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
-        
-        self.identity_best_in_trial()
+        # if self.__class__.__name__.lower() == "morborunner":
+        #     self.Y_next = y
+        # else:
+        #     self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1)
+
+        self.Y_next  = torch.tensor(y, dtype=self.dtype, device=self.device).unsqueeze(-1) if not torch.is_tensor(y) else y
+        self.X_next = torch.tensor(self.X_next, dtype=self.dtype, device=self.device) if not torch.is_tensor(self.X_next) else self.X_next
+
+        if not self.is_moo:
+            self.identity_best_in_trial()
     
         if yvar is not None:
             self.Yvar_next = torch.tensor(yvar, dtype=self.dtype, device=self.device).unsqueeze(-1)
@@ -102,12 +113,14 @@ class OptimizationAlgorithmBridge:
         }
         return ts
     def terminate_experiment(self):
-
+        if self.is_moo:
+            # STRUGGLE WITH MORBO; Can't pickle local object 'get_outcome_constraint_transforms; TODO: FIX 
+            return
         path = "data/experiment_" + str(self.experiment_id)
         Path(path).mkdir(parents=True, exist_ok=True)
         with open((path + "/" + str(self.experiment_id) + "_" + str(self.replication) + "_" + self.get_name() +  ".pkl"), "wb") as fo:
             pickle.dump(self, fo)
-    
+        torch.cuda.empty_cache()
     def get_y_pred(self, index=-1):
         """
         NOTE: y-pred not implemented. Returning None
@@ -131,4 +144,25 @@ class OptimizationAlgorithmBridge:
         else:
             lengthscale = self.lengthscales
         return torch.reciprocal(lengthscale)
-        
+    
+    def get_hypervolume(self):
+        if self.Y.ndim == 1:
+            return "na"
+        return self.hv.compute(self.Y)
+    def get_hypervolume_improvement(self):
+        if self.Y.ndim == 1:
+            return "na"
+        return self.hv.compute(self.Y) - self.hv.compute(self.Y_current_best)
+    def check_outcome_constraints_bool(self, value, bound, constraint_type="ieq"):
+        return value <= bound if constraint_type == "ieq" else value == bound
+    def check_outcome_constraints_numerical(self, value, bound, constraint_type):
+        '''
+        returns -1 if constraint is satisfied, 1 if not because botorch implies feasibility with negative values
+        '''
+        # negative values imply feasibility in botorch -> https://botorch.org/tutorials/constrained_multi_objective_bo
+        return value - bound if constraint_type == "ieq" else torch.where(value==bound, torch.tensor(1), torch.tensor(-1)) 
+            
+      
+
+
+

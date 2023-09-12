@@ -18,6 +18,7 @@ import logging
 import json
 import time
 import copy
+from collections import deque
 # sys.path.append('../')
 
 
@@ -29,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger("manager")
 
 
-
+error_queue = Queue()
 # Surpress PyTorch warning
 warnings.filterwarnings(
     "ignore", message="To copy construct from a tensor, it is")
@@ -65,6 +66,14 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
         return results
     except Exception as e:
         logger.error(f"Error in running experiment {exp_name} (ID: {exp_id}): {e}")
+        
+        error_queue.put({
+            'experiment': experiment,
+            'replication': replication,
+            'exp_name': exp_name,
+            'exp_id': exp_id,
+            'error_msg': str(e)
+        })
         raise e
 
 
@@ -74,7 +83,7 @@ class ExperimentManager:
         self.checking_interval = checking_interval
         self.experiments_queue = Queue()
         self.experiments_running = Queue()
-
+        
         self.processes_running = []
         self.main_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))  # r"C:\code\SimBO"
         self.database = Database(self.main_dir)
@@ -89,8 +98,8 @@ class ExperimentManager:
         self.logger.addHandler(fh)
         self.num_parallel_experiments = num_parallel_experiments if num_parallel_experiments != -1 else max(torch.cuda.device_count(),1)
         self.gpus_available = [torch.cuda.device(i) for i in range(torch.cuda.device_count())] if torch.cuda.is_available() and num_parallel_experiments != -1 else [i for i in range(self.num_parallel_experiments)]
-        
-
+        self.last_experiment_ids = deque(maxlen = self.num_parallel_experiments)
+   
         self.date_format = "%Y-%m-%d %H:%M:%S"
         self.logger.info("Manager initialized.")
     def gpu_free(self):
@@ -130,8 +139,8 @@ class ExperimentManager:
             self.logger.error(f"Error while running experiment {exp_name} (ID: {exp_id}) ")
             self.logger.error(e)
             self.close_experiment(experiment, current_replication, failed=True)
-            self.gpus_available.append(gpu)
-          
+            self.check_processes()
+
 
     def close_experiment(self, experiment, replication=-1, failed=False, aborted=False):
         '''
@@ -139,6 +148,7 @@ class ExperimentManager:
         '''
         exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
         exp_id = experiment.get("experiment_id")
+
         if failed:
 
             _experiment = self.experiments_running.get(experiment)
@@ -170,7 +180,7 @@ class ExperimentManager:
         self.should_listen = False
 
     def identify_runner_type(self, experiment):
-        if experiment.get("use_case", "").lower() in ["mrp"]:
+        if experiment.get("use_case", "").lower() in ["mrp", "dummy", "mrp_mo","mrpmo"]:
             rt = "algorithm"
         elif experiment.get("use_case", "").lower() in ["pfp"]:
             rt = "simulation"
@@ -198,6 +208,7 @@ class ExperimentManager:
                         self.database.write_result_to_firestore(exp_id, replication)
                         self.database.write_all_files_to_storage(exp_id)
                         self.database.update_replication_at_firestore(exp_id, replication)
+                        self.last_experiment_ids.append(exp_id)
                         if replication >= process.get("replications"):
                             experiment = process.get("experiment")
                             self.close_experiment(experiment)
@@ -212,10 +223,16 @@ class ExperimentManager:
                         self.logger.error(e)
                 else:
                     replication = process.get("current_replication")
+                    self.gpus_available.append(process.get("gpu"))
                     self.close_experiment(process.get("experiment"),replication, failed=True)
+                    processes_to_rm.append(process)
+                    self.logger.error(f"Process terminated unexpectedly within manager {self.manager_id}: Replication {replication} of experiment {process.get('experiment_name')} (ID: {process.get('experiment_id')})")
                 # p.close()
+            else:
+                  self.logger.warning(f"Process still running within manager {self.manager_id}: Replication {process.get('current_replication')} of experiment {process.get('experiment_name')} (ID: {process.get('experiment_id')})")
         for rmp in processes_to_rm:
             self.processes_running.remove(rmp)
+        return
  
 
 
@@ -227,13 +244,18 @@ class ExperimentManager:
             exp_id = sys.argv[4]
             logger.info(f"Running experiment {exp_id} from command line")
             experiment = self.database.get_experiment_from_firestore(exp_id)
+            experiment["experiment_id"] = exp.id
+            experiment["current_replication"] = experiment.get("replications_fulfilled", 0) + i
+            experiment["runner_type"] = self.identify_runner_type(experiment)
             self.run_experimentation_process(experiment)
+            self.check_processes()
             sys.argv.pop(4)
         except:
             pass
         while self.should_listen:
             self.logger.info("Checking for finished experiment replications...")
             self.check_processes()
+   
             if self.gpu_free():
                 self.logger.info("Checking for new experiments to run...")
                 experiments = self.database.check_database_for_experiments(self.manager_id, len(self.gpus_available))
@@ -263,8 +285,14 @@ class ExperimentManager:
                     self.logger.info(f"Found {len(exp_in_this_loop)} experiment replications to run")
                     self.checking_interval = initial_checking_interval
                     for i in range(len(self.gpus_available)):
-                        self.run_experimentation_process(exp_in_this_loop[i])
+                        exp =exp_in_this_loop[i]
+                        if not exp.get("experiment_id") in self.last_experiment_ids:
+                            for l_e_id in self.last_experiment_ids:
+                                if not self.database.check_experiment_status(l_e_id,"done"):
+                                    self.database.set_experiment_status(l_e_id,"paused")
+                        self.run_experimentation_process(exp)
             time.sleep(max(self.checking_interval,10))
+
 
 
 def log_gpu_usage():
@@ -276,14 +304,19 @@ def log_gpu_usage():
     logger.addHandler(fh)
     logger.info("Starting GPU logger")
     logger.propagate = False
+    
     try:
         if torch.cuda.is_available():
             import subprocess
             import re
-            command = 'nvidia-smi'
+            command = 'nvidia-smi --query-gpu=name,utilization.gpu,memory.total,memory.used --format=csv,nounits,noheader'
             while True:
                 p = subprocess.check_output(command, shell=True)
-                logger.info(str(p.decode("utf-8")))
+                lines = p.decode("utf-8").strip().split("\n")
+                for line in lines:
+                    gpu_name, gpu_util, memory_total, memory_used = line.split(", ")
+                    log_message = f"Usage of {gpu_name} {gpu_util} % ({memory_used} MB / {memory_total} MB)"
+                    logger.info(log_message)
                 time.sleep(2)
         else:
             logger.info("No GPU available")
@@ -303,4 +336,6 @@ if __name__ == "__main__":
     else:
         num_parallel_experiments = -1
     mp.Process(target=log_gpu_usage).start() 
-    ExperimentManager(manager_id, interval, num_parallel_experiments).run()
+
+    EM = ExperimentManager(manager_id, interval, num_parallel_experiments)
+    EM.run()

@@ -22,6 +22,9 @@ class Database:
         self.db = self.init_firestore()
         self.bucket = self.init_storage()
 
+    def update_current_best_candidate(self, experiment_id, replication, best_candidate):
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
+        doc_ref.update({"best_candidate": best_candidate})
     def set_experiment_status(self, experiment_id, status, with_id = False):
         if status not in ["running", "done", "failed", "aborted"]:
             logger.error(f"Status {status} not recognized. Experiment {experiment_id} not updated.")
@@ -38,7 +41,7 @@ class Database:
         credit_path = os.path.join(self.main_dir,self.fb_key_name)
         cred = credentials.Certificate(credit_path)
         return firebase_admin.initialize_app(cred, {
-            'storageBucket': 'simbo-bf62e.appspot.com'
+            'storageBucket': config.BUCKET
         })
     def init_firestore(self):
         return firestore.client()
@@ -83,7 +86,12 @@ class Database:
                     json.dump(config, outfile)
             if fb:
                 self.write_experiment_to_firestore(config)
-    
+    def set_experiment_status_interrupted(self, experiment_id):
+        doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
+        status = doc_ref.get().to_dict().get("status")
+        if not status == "done":
+            doc_ref.update({u'status': "interrupted"})
+                
     def update_replication_at_firestore(self, experiment_id, replication):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
         doc_ref.update({u'replications_fulfilled': replication})
@@ -173,9 +181,9 @@ class Database:
 
     def check_database_for_experiments(self, manager_id=-1, limit=1):
         if manager_id == -1:
-            experiments = self.db.collection(u'experiments').where(u'status', u'in', [u'open', 'running']).order_by("priority_value", direction=firestore.Query.DESCENDING).order_by("created_at").limit(limit).get()
+            experiments = self.db.collection(u'experiments').where(u'status', u'in', [u'open', 'running', "paused"]).order_by("priority_value", direction=firestore.Query.DESCENDING).order_by("created_at").limit(limit).get()
         else:
-            experiments = self.db.collection(u'experiments').where(u'status', u'in', [u'open', 'running']).where(u'manager_id', u'==', manager_id).order_by("priority_value", direction=firestore.Query.DESCENDING).order_by("created_at").limit(limit).get()
+            experiments = self.db.collection(u'experiments').where(u'status', u'in', [u'open', 'running', "paused"]).where(u'manager_id', u'==', manager_id).order_by("priority_value", direction=firestore.Query.DESCENDING).order_by("created_at").limit(limit).get()
         return experiments
 
 

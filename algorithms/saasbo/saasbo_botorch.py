@@ -56,5 +56,6 @@ class SaasboRunner(OptimizationAlgorithmBridge):
         self.acq_values = torch.cat((self.acq_values, acq_values), dim=0) if self.acq_values is not None else acq_values
        
         self.logger.debug(f"Next suggested candidate(s) (SAASBO): {self.X_next}")
+        del model
         return self.X_next
 

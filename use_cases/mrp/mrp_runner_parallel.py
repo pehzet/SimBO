@@ -13,9 +13,13 @@ from use_cases.mrp.mrp_sim import MRPSimulation
 import os
 import torch
 import numpy as np
+
 import traceback
 from botorch.utils.transforms import unnormalize, normalize
 from icecream import ic
+# import multiprocessing as mp
+import pathos as mp
+from pathos.pp import ParallelPool 
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
 class MRPRunner():
 
@@ -37,6 +41,7 @@ class MRPRunner():
         self.Y_raw = list()
         self.constraints = self.create_constraints()
         self.objectives = self.create_objectives()
+        self.simulations_parallel = True
 
 
     def create_objectives(self):
@@ -49,11 +54,17 @@ class MRPRunner():
 
         self.X.append(x)
         releases = self.run_solver(x)
-        for _ in range(self.num_sim_runs):
-      
-            result = MRPSimulation(releases, self.materials, self.bom, self.orders, stochastic_method = self.stochastic_method).run_simulation(sim_time=200)
+        if self.simulations_parallel and (mp.helpers.cpu_count() - 2) > self.num_sim_runs:
+            # pool = mp.Pool(processes=self.num_sim_runs)
+            pool = ParallelPool(nodes=self.num_sim_runs)
 
-            self.Y_raw.append(result)
+            instances = [MRPSimulation(releases, self.materials, self.bom, self.orders, stochastic_method = self.stochastic_method) for _ in range(self.num_sim_runs)]
+            results = pool.map(lambda x: x.run_simulation(sim_time=200), instances)
+            self.Y_raw.extend(results)
+        else:
+            for _ in range(self.num_sim_runs):
+                result = MRPSimulation(releases, self.materials, self.bom, self.orders, stochastic_method = self.stochastic_method).run_simulation(sim_time=200)
+                self.Y_raw.append(result)
         y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_sim_runs:])
   
         return y
@@ -341,9 +352,4 @@ class MRPRunner():
 
 
 
-    def get_log_informations(self):
-        return {
-            "bom_id" : self.bom_id,
-            "num_sim_runs" : self.num_sim_runs,
-            "stochastic_method" : self.stochastic_method
-        }
+

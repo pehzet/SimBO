@@ -9,7 +9,7 @@ from pandas import DataFrame
 from utils.gsheet_utils import read_gsheet, formatDF
 from torch import tensor
 from use_cases.mrp.mrp_solver import MRPSolver
-from use_cases.mrp.mrp_sim import MRPSimulation
+from use_cases.mrp.mrp_mo_sim import MRPSimulation
 import os
 import torch
 import numpy as np
@@ -17,7 +17,7 @@ import traceback
 from botorch.utils.transforms import unnormalize, normalize
 from icecream import ic
 tkwargs = {"device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), "dtype": torch.double}
-class MRPRunner():
+class MRPMORunner():
 
     def __init__(self, bom_id, num_sim_runs=5, stochastic_method='discrete'):
         self.bom_id = bom_id
@@ -43,6 +43,11 @@ class MRPRunner():
         return [{"name":"costs"}, {"name" : "sl"}]
     def create_constraints(self):
         return None
+
+    def get_ref_point(self):
+        return torch.tensor([-1_000_000_000,0.0]).to(tkwargs["device"])
+        
+
     def eval(self, x,):
 
         x = self.transform_x(x)
@@ -50,12 +55,9 @@ class MRPRunner():
         self.X.append(x)
         releases = self.run_solver(x)
         for _ in range(self.num_sim_runs):
-      
             result = MRPSimulation(releases, self.materials, self.bom, self.orders, stochastic_method = self.stochastic_method).run_simulation(sim_time=200)
-
             self.Y_raw.append(result)
         y = self.get_mean_and_sem_from_y(self.Y_raw[-self.num_sim_runs:])
-  
         return y
     def eval_manually(self, x, skip_transform=False):
         if not skip_transform:
@@ -67,20 +69,24 @@ class MRPRunner():
       
             result = MRPSimulation(releases, self.materials, self.bom, self.orders, stochastic_method = self.stochastic_method).run_simulation(sim_time=200)
             results.append(result)
-     
+
         y = self.get_mean_and_sem_from_y(results)
   
         return y
     def get_mean_and_sem_from_y(self, y_raw):
-        data = list()
+        costs = [d["costs"] for d in y_raw]
+        service_levels = [d["service_level"] for d in y_raw]
 
-        for i in range(len(y_raw[0].keys())):
-            values = [list(y.values())[i] for y in y_raw]
-            mean = np.mean(values)
-            sem = (np.std(values, ddof=1) / np.sqrt(np.size(values)))
-            sem = sem if not np.isnan(sem) else 0
-            data.append((mean,sem))
-        return data
+        # Calculate mean and SEM for costs
+        mean_costs = np.mean(costs)
+        sem_costs = np.std(costs) / np.sqrt(len(costs))
+        sem_costs = sem_costs if not np.isnan(sem_costs) else 0
+        # Calculate mean and SEM for service levels
+        mean_service_level = np.mean(service_levels)
+        sem_service_level = np.std(service_levels) / np.sqrt(len(service_levels))
+        sem_service_level = sem_service_level if not np.isnan(sem_service_level) else 0
+
+        return ((mean_costs, sem_costs), (mean_service_level, sem_service_level))
 
     def format_y_for_candidate(self, y):
         return {"costs" : y[0], "service_level" : y[1]}
@@ -107,7 +113,10 @@ class MRPRunner():
         x_mrp = []
         for i,pm in enumerate(self.param_meta):
             discrete_space = np.linspace(0, 1, self.bounds[1][i] - self.bounds[0][i] + 1)[1:-1]
-            xd = np.digitize(x[i].cpu().numpy(), discrete_space)
+            if isinstance(x, torch.Tensor):
+                xd = np.digitize(x[i].cpu().numpy(), discrete_space)
+            else:
+                xd = np.digitize(x[i], discrete_space)
             x_mrp.append(
                 {   
                 "id" : pm.get("name").split("_",1)[0],
@@ -125,14 +134,16 @@ class MRPRunner():
         '''
         returns two tensors with mean and sem
         '''
-        y_mean = torch.tensor([y[0][0] for y in y_mrp]).to(tkwargs["device"])
+        y_mean_list = []
+        y_sem_list = []
 
-        y_sem = torch.tensor([y[0][1] for y in y_mrp]).to(tkwargs["device"])
-        
-        #yy = torch.tensor([list(y.values())[0] for y in y_mrp])
-        if self.minimize:
-            y_mean = y_mean * -1
-            #y_sem = y_sem * -1
+        for i in range(len(y_mrp)):
+            y_mean_list.append([y_mrp[i][0][0] * -1, y_mrp[i][1][0]])
+            y_sem_list.append([y_mrp[i][0][1], y_mrp[i][1][1]])
+
+        y_mean = torch.tensor(y_mean_list).to(tkwargs["device"])
+        y_sem = torch.tensor(y_sem_list).to(tkwargs["device"])
+
         return y_mean, y_sem
 
     def get_bounds_from_param_meta(self):

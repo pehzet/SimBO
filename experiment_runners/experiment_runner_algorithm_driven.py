@@ -25,7 +25,7 @@ import os
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-
+from icecream import ic
 import time
 import torch
 from .experiment_runner import ExperimentRunner
@@ -120,6 +120,11 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
             else:
                 sm = ts.get("sm", "na") if self.current_candidate > self.algorithm_runner.num_init else "sobol"
                 acqf = ts.get("acqf", "na") if self.current_candidate > self.algorithm_runner.num_init else "sobol"
+            if self.algorithm.lower() in ["cmaes", "cma-es", "morbo", "qnehvi","nsga2","moead","spea2","nsga3","saasmo"]:
+                # NOTE not implemented for mo
+                fi = "na"
+            else:
+                self.use_case_runner.format_feature_importance(self.algorithm_runner.get_feature_importance())
             self.candidates.append({
                 "id" : self.current_candidate,
                 "sm" : sm,
@@ -127,20 +132,41 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
                 "tr" : self.algorithm_runner.get_tr(),
                 "x" : self.use_case_runner.format_x_for_candidate(x),
                 "y" : self.use_case_runner.format_y_for_candidate(y),
-                "fi" : self.use_case_runner.format_feature_importance(self.algorithm_runner.get_feature_importance()),
+                "fi" : fi,
                 "ei" : "na",
                 "y_pred" : "na",
                 "acq_value" : self.algorithm_runner.get_acq_value((self.current_candidate - self.algorithm_runner.num_init - 1))
             })
     
+    def combine_tensors_to_tuples(self, tensor1, tensor2):
+        """
+        t1: tensor of shape (n,1)
+        t2: tensor of shape (n,1)
+        """
+        if torch.is_tensor(tensor1):
+            
+            assert tensor1.size(0) == tensor2.size(0)
+            return [(tuple(tensor1[i].tolist()), tuple(tensor2[i].tolist())) for i in range(min(tensor1.size(0), tensor2.size(0)))]
+        else:
+            assert len(tensor1) == len(tensor2)
+            return [(tuple(tensor1[i]), tuple(tensor2[i])) for i in range(min(len(tensor1), len(tensor2)))]
+
 
     def get_best_candidate(self):
-        ys = list()
-        for c in self.candidates: 
-            ys.append([_y for _y in c.get("y").values()][0])
-        best = self.candidates[pd.DataFrame(ys).idxmin()[0]] if self.minimize else self.candidates[pd.DataFrame(ys).idxmax()[0]]
-        self.logger.info(f"Best candidate found:\n {json.dumps(best, indent=2)}")
-        return best
+        if  self.algorithm_runner.is_ea:
+            '''
+            NOT IMPLEMENTED
+            '''
+            return None
+        if self.algorithm_runner.is_moo:
+            return self.combine_tensors_to_tuples(self.algorithm_runner.pareto_x, self.algorithm_runner.pareto_y)
+        else:
+            ys = list()
+            for c in self.candidates: 
+                ys.append([_y for _y in c.get("y").values()][0])
+            best = self.candidates[pd.DataFrame(ys).idxmin()[0]] if self.minimize else self.candidates[pd.DataFrame(ys).idxmax()[0]]
+            self.logger.info(f"Best candidate found:\n {json.dumps(best, indent=2)}")
+            return best
         
     def run_optimization_loop(self):
         self.logger.info(f"Starting optimization run with evaluation budget of >{self.eval_budget}<")
@@ -150,7 +176,10 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
         _start_trial = time.monotonic()
 
         x = self.algorithm_runner.suggest_initial()
-        self.logger.info(f"Got >{x.size()[0]}< initial points from algorithm.")
+        if isinstance(x, torch.Tensor):
+            self.logger.info(f"Got >{x.size()[0]}< initial points from algorithm.")
+        else:
+            self.logger.info(f"Got >{len(x)}< initial points from algorithm.")
         _end_trial = time.monotonic()
         #self.trial_runtimes_second.extend([(_end_trial- _start_trial) for _ in range(len(x))]) # ASKNICOLAS: soll len(trial_runtimes) = len(eval_runtimes) sein, damit es bei der Analyse nachher einfacher ist?
         self.trial_runtimes_second.append(_end_trial- _start_trial)
@@ -173,7 +202,6 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
 
         self.append_candidate_to_candidates_list(x,_y)
         y, ysem = self.use_case_runner.transform_y_to_tensors_mean_sem(_y)
-
         self.algorithm_runner.complete(y, yvar = ysem)
         self.eval_budget -= len(x)
         self.current_trial +=1
@@ -189,9 +217,11 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
                 self.logger.info("Max Retries reached. Going to Exit Optimization")
                 self.algorithm_runner.terminate_experiment()
                 self.save_experiment_json()
-                sys.exit()
+                break
             try:
                 x = self.algorithm_runner.suggest()
+            except KeyboardInterrupt:
+                sys.exit(0)
             except BaseException as e:
                 retries += 1
                 self.logger.info(f"Error at Suggest: {e}. Retry {retries} of 5")
