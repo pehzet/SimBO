@@ -9,18 +9,23 @@ Simulation Based Optimization in Python using Model-based Optimization Algorithm
 pip -r requirements.txt
 ```
 
-**Step 2:** Make .env file with google spreadsheet id
+**Step 2:** Create config.py file in the root directory and set the following variables:
 
-Alternative, type on terminal:
+SHEET_ID = "SET YOUR SHEET ID HERE"
+FIREBASE_CONFIG = "SET YOUR FIREBASE CONFIG PATH HERE"
+BUCKET = "SET YOUR BUCKET NAME HERE"
+BIGQUERY_DATASET = "SET YOUR BIGQUERY DATASET NAME HERE"
+GCLOUD_PROJECT = "SET YOUR GCLOUD PROJECT NAME HERE"
+GCLOUD_SERVICE_ACCOUNT = "SET YOUR GCLOUD SERVICE ACCOUNT PATH HERE"
+
+
+**Step 3:** initialize database with:
 
 ```
-SET SHEET_ID=<google_spreadsheet_id>
+python backend/databases/init_sql.py
 ```
 
-**Step 3:** Get the configs by running `gheet_utils.py` or set second main.py argument to "load"
-
-**Step 4:** Start experiment with given ID:
-
+**Step 4:** Start experiments with:
 ```
-main.py [experiment_id:int] [optional: load:str]
+python main.py 
 ```

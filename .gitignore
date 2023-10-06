@@ -9,6 +9,7 @@ tmp2.py
 env
 *.json
 simbo-env
+simbo-py11-env
 .git
 configs
 api_formats
@@ -44,3 +45,11 @@ mrp_sim_old.py
 nohup.out
 cluster_stuff.txt
 cluster.md
+frontend
+pareto_plot_test.py
+*png
+plots
+experiment_set.py
+gpu_log.py
+old_managers
+other

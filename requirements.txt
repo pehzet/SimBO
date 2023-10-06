@@ -1,4 +1,3 @@
-#ax-platform
 botorch
 pandas
 flask
@@ -10,3 +9,5 @@ cma
 icecream
 openpyxl
 firebase-admin
+sqlite3
+google-cloud
