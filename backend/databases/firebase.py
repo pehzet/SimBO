@@ -182,7 +182,7 @@ class FirebaseManager:
         doc_ref.update({f'replication_progress.{str(replication)}' : current_arm })
 
     def check_database_for_experiments(self, manager_id=-1, limit=1):
-        if manager_id == -1:
+        if manager_id == -1 or manager_id == None:
             experiments = self.db.collection(u'experiments').where(filter=FieldFilter("status", "in", ["open", "running", "paused"])).order_by("priority_value", direction=firestore.Query.DESCENDING).order_by("created_at").limit(limit).get()
         else:
             experiments = self.db.collection(u'experiments').where(filter=FieldFilter("status", "in", ["open", "running", "paused"])).where(filter=FieldFilter(u'manager_id', u'==', int(manager_id))).order_by("priority_value", direction=firestore.Query.DESCENDING).order_by("created_at").limit(limit).get()
@@ -195,11 +195,15 @@ class FirebaseManager:
             else:
                 raise Exception("No free manager found")
         else:
-            manager = self.db.collection(u'managers').document(f'manager{manager_id}').where(u'status', u'==', u'free').get()
+            manager = self.db.collection(u'managers').document(f'manager{manager_id}').get()
             if manager.exists:
-                return manager.to_dict()
+                manager = manager.to_dict()
+                if manager.get("status") == "free":
+                    return manager.to_dict()
+                else:
+                    raise Exception(f"Manager {manager_id} is not free")
             else:
-                raise Exception(f"Manager {manager_id} does not exist or is not free")
+                raise Exception(f"Manager {manager_id} does not exist")
     def set_experiment_manager_experiment(self, manager_id,  exp_id):
         obj = {
                 "status": "free" if exp_id == None else "busy",

@@ -9,5 +9,5 @@ cma
 icecream
 openpyxl
 firebase-admin
-sqlite3
-google-cloud
+google-cloud-biquery
+pymoo
