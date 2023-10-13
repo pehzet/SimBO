@@ -327,8 +327,10 @@ class MRPMORunner():
         pm_name = [pm.get("name") for pm in self.param_meta]
 
         fi = tensor(fi).to(tkwargs.get("device"))
+        ic(fi.ndim)
         if fi.ndim == 1:
             fi = fi.tolist()
+            ic([dict((k,v) for k,v in zip(pm_name, fi))])
             return [dict((k,v) for k,v in zip(pm_name, fi))]
   
         fi_per_trial = []
@@ -336,6 +338,7 @@ class MRPMORunner():
             _fi = _fi.tolist()
             fi_dict = dict((k,v) for k,v in zip(pm_name, _fi))
             fi_per_trial.append(fi_dict)
+        ic(fi_per_trial)
         return fi_per_trial
 
     def run_solver(self, params):

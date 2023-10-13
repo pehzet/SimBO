@@ -14,9 +14,14 @@ if __name__ == "__main__":
     from backend.manager.manager import ExperimentManager, log_gpu_usage
     from backend.databases.firebase import FirebaseManager
     database = FirebaseManager(project_root)
-    exp_manager = database.get_experiment_manager()
+    if len(sys.argv > 1):
+        try:
+            manager_id = int(sys.argv[1])
+        except:
+            raise Exception("First argument must be Manager ID (int)")
+    exp_manager = database.get_experiment_manager(manager_id=manager_id)
 
     mp.Process(target=log_gpu_usage).start() 
 
-    EM = ExperimentManager(exp_manager.get("id",-1), exp_manager.get("default_interval", 30), db = database)
+    EM = ExperimentManager(manager_id, exp_manager.get("default_interval", 30), db = database)
     EM.run()

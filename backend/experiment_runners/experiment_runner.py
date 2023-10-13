@@ -288,7 +288,7 @@ class ExperimentRunner():
         with open((path + "/" + str(self.experiment_id) + "_" + str(self.replication) + "_" + self.algorithm_runner.get_name() +  ".pkl"), "wb") as fo:
             pickle.dump(self.algorithm_runner, fo)
         self.database.append_best_arm_to_use_case(self.config.get("use_case_config").get("use_case").lower(), self.best_candidate)
-        ic("WILL SEND TO BIGQUERY")
+        
         torch.cuda.empty_cache()
 
     def save_experiment_json(self):
@@ -328,7 +328,7 @@ class ExperimentRunner():
         ffolder = os.path.join("data", "experiment_" + str(self.experiment_id))
         fpath = os.path.join(ffolder, "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json")
 
-
+        ic(obj)
         if not os.path.exists(ffolder):
             Path(ffolder).mkdir(parents=True, exist_ok=True)
         with open(fpath, 'w+') as fo:

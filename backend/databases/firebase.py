@@ -93,10 +93,10 @@ class FirebaseManager:
         if not status == "done":
             doc_ref.update({u'status': "interrupted"})
                 
-    def update_replication_at_firestore(self, experiment_id, replication):
+    def update_replication(self, experiment_id, replication):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
         doc_ref.update({u'replications_fulfilled': replication})
-    def update_current_replication_at_firestore(self, experiment_id, replication):
+    def update_current_replication(self, experiment_id, replication):
         doc_ref = self.db.collection(u'experiments').document(str(experiment_id))
         doc_ref.update({u'current_replication': replication})
     def check_experiment_status(self, experiment_id, status_to_check=None):
@@ -166,7 +166,7 @@ class FirebaseManager:
         except Exception as e:
             logger.error(e)
             logger.error(f"Error writing files to storage for experiment {exp_id}")
-
+    # TODO REMOVE FROM FIREBASE MANAGER
     def check_if_local_files_exist(self, experiment_id, replication):
         if None in [experiment_id, replication]:
             logger.error("Experiment id or replication is None")
@@ -195,11 +195,11 @@ class FirebaseManager:
             else:
                 raise Exception("No free manager found")
         else:
-            manager = self.db.collection(u'managers').document(f'manager{manager_id}').get()
+            manager = self.db.collection(u'managers').document(f'manager{manager_id}').where(u'status', u'==', u'free').get()
             if manager.exists:
                 return manager.to_dict()
             else:
-                raise Exception(f"Manager {manager_id} does not exist")
+                raise Exception(f"Manager {manager_id} does not exist or is not free")
     def set_experiment_manager_experiment(self, manager_id,  exp_id):
         obj = {
                 "status": "free" if exp_id == None else "busy",

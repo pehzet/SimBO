@@ -9,6 +9,8 @@ from google.cloud import bigquery
 import os
 import logging
 import traceback
+import numpy as np
+from icecream import ic
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = config.GCLOUD_SERVICE_ACCOUNT
 logger = logging.getLogger("database")
 class SQLManager():
@@ -50,6 +52,10 @@ class SQLManager():
         INSERT INTO lengthscales (experiment_id, replication, trial, lengthscales, last_updated_at)
         VALUES (?, ?, ?, ?, ?)
         """
+        ic(type(lengthscales))
+        if isinstance(lengthscales, np.ndarray):
+            lengthscales = lengthscales.tolist()
+        ic(type(lengthscales))
         lengthscales = json.dumps(lengthscales)
         last_updated_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.cursor.execute(query, (experiment_id, replication, trial, lengthscales, last_updated_at))
@@ -61,6 +67,8 @@ class SQLManager():
         INSERT INTO acq_values (experiment_id, replication, trial, acq_values, last_updated_at)
         VALUES (?, ?, ?, ?, ?)
         """
+        if isinstance(acq_values, np.ndarray):
+            acq_values = acq_values.tolist()
         acq_values = json.dumps(acq_values)
         last_updated_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.cursor.execute(query, (experiment_id, replication, trial, acq_values, last_updated_at))
@@ -102,11 +110,11 @@ class SQLManager():
         load_job.result()
 
     def send_local_database_to_bigquery(self):
-        lua_path = db_path = os.path.join(os.path.dirname(__file__), 'last_updated_at.txt')
+        lua_path = os.path.join(os.path.dirname(__file__), 'last_updated_at.txt')
         if not os.path.exists(lua_path):
-            with open('last_updated_at.txt', 'w') as f:
+            with open(lua_path, 'w') as f:
                 f.write("2020-01-01 00:00:00")
-        with open('last_updated_at.txt', 'r') as f:
+        with open(lua_path, 'r') as f:
             last_updated_at = f.read()
         try:
             bucket_name = "simbo-data"
@@ -129,4 +137,29 @@ class SQLManager():
         except Exception as e:
             logger.error(f"Error in SQLite to Bigquery: {e}")
             traceback.print_exc()
-        
+        self.send_db_file_to_storage()
+    
+    def send_db_file_to_storage(self):
+        try:
+            bucket_name = "simbo-data"
+            source_file_path = os.path.join(os.path.dirname(__file__), 'SimBO.db')
+            destination_blob_name = "SimBO.db"
+            self._upload_to_gcs(bucket_name, source_file_path, destination_blob_name)
+            logger.info(f"Successfully sent db file to GCS")
+        except Exception as e:
+            logger.error(f"Error in SQLite to GCS: {e}")
+            traceback.print_exc()
+
+    def get_db_file_from_storage(self):
+        try:
+            bucket_name = "simbo-data"
+            source_blob_name = "SimBO.db"
+            destination_file_name = os.path.join(os.path.dirname(__file__), 'SimBO.db')
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(source_blob_name)
+            blob.download_to_filename(destination_file_name)
+            logger.info(f"Successfully downloaded db file from GCS")
+        except Exception as e:
+            logger.error(f"Error in GCS to SQLite: {e}")
+            traceback.print_exc()

@@ -162,10 +162,10 @@ class OptimizationAlgorithmBridge:
             ls = np.array([])
         self.lengthscales.append(ls)
         return ls
-    def append_lengthscale_mo(self, model):
+    def append_lengthscale_mo(self, model_list: ModelListGP):
         ls_arr = []
-        for m in model:
-            ls_arr.append(m.covar_module.base_kernel.lengthscale.clone().detach().numpy())
+        for m in model_list.models:
+            ls_arr.append(m.covar_module.base_kernel.lengthscale.clone().detach().tolist())
 
         self.lengthscales.append(ls_arr)
     def get_acq_value(self, index=-1):

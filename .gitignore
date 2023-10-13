@@ -53,3 +53,4 @@ experiment_set.py
 gpu_log.py
 old_managers
 other
+manager_test.py

@@ -120,9 +120,9 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
             else:
                 sm = ts.get("sm", "na") if self.current_candidate > self.algorithm_runner.num_init else "sobol"
                 acqf = ts.get("acqf", "na") if self.current_candidate > self.algorithm_runner.num_init else "sobol"
-            if self.algorithm.lower() in ["cmaes", "cma-es", "morbo", "qnehvi","nsga2","moead","spea2","nsga3","saasmo"]:
+            if self.algorithm.lower() in ["cmaes", "cma-es", "nsga2","moead","spea2","nsga3"]:
                 # NOTE not implemented for mo
-                fi = "na"
+                ls = "na"
             else:
                 # fi = self.use_case_runner.format_feature_importance(self.algorithm_runner.get_feature_importance())
                 ls = self.algorithm_runner.lengthscales[-1] if len(self.algorithm_runner.lengthscales) > 0 else None
