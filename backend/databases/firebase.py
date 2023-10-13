@@ -199,7 +199,7 @@ class FirebaseManager:
             if manager.exists:
                 manager = manager.to_dict()
                 if manager.get("status") == "free":
-                    return manager.to_dict()
+                    return manager
                 else:
                     raise Exception(f"Manager {manager_id} is not free")
             else:
