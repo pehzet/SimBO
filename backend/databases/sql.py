@@ -52,10 +52,10 @@ class SQLManager():
         INSERT INTO lengthscales (experiment_id, replication, trial, lengthscales, last_updated_at)
         VALUES (?, ?, ?, ?, ?)
         """
-        ic(type(lengthscales))
+
         if isinstance(lengthscales, np.ndarray):
             lengthscales = lengthscales.tolist()
-        ic(type(lengthscales))
+
         lengthscales = json.dumps(lengthscales)
         last_updated_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.cursor.execute(query, (experiment_id, replication, trial, lengthscales, last_updated_at))

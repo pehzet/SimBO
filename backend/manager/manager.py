@@ -287,7 +287,6 @@ class ExperimentManager:
             if self.gpu_free():
                 self.logger.info("Checking for new experiments to run...")
                 experiments = self.database.check_database_for_experiments(self.manager_id, len(self.gpus_available))
-                
                 if len(experiments) == 0:
                     self.logger.info(f"No experiments found. Waiting {self.checking_interval} seconds")
                     no_experiment_counter = self.adjust_checking_interval(no_experiment_counter, initial_checking_interval)
