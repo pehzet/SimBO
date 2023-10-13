@@ -79,7 +79,7 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
 class ExperimentManager:
     def __init__(self, manager_id, checking_interval=60, db=None, num_parallel_experiments=-1):
         self.manager_id = manager_id
-        self.checking_interval = checking_interval
+        self.checking_interval = int(checking_interval)
         self.experiments_queue = Queue()
         self.experiments_running = Queue()
         
