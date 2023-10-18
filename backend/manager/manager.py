@@ -126,7 +126,6 @@ class ExperimentManager:
         try:
             p = mp.Process(target=send_experiment_to_runner, args=(experiment, current_replication, tkwargs, ))
             p.start()
-
             process_dict = {
                 "experiment_id": exp_id,
                 "experiment_name": exp_name,
@@ -135,8 +134,6 @@ class ExperimentManager:
                 "process": p,
                 "gpu": gpu,
                 "experiment" : copy.deepcopy(experiment),
-
-
             }
             self.database.set_experiment_status(exp_id, "running")
             self.processes_running.append(process_dict)
@@ -244,9 +241,6 @@ class ExperimentManager:
         return
  
     def adjust_checking_interval_and_check_run_end(self, no_experiment_counter, initial_checking_interval):
-        if self.checking_interval > initial_checking_interval * 5:
-            self.checking_interval = initial_checking_interval * 5
-            self.logger.info(f"Limiting checking interval to {self.checking_interval} seconds")
         if no_experiment_counter > 5:
             # self.checking_interval *= 1.5
             # self.logger.info(f"No experiments found. Increasing checking interval to {self.checking_interval} seconds")
@@ -254,6 +248,9 @@ class ExperimentManager:
             self.logger.info(f"No further experiments. Shutting down manager {self.manager_id}...")
             self.break_experiment_listener()
             return 0
+        if self.checking_interval > initial_checking_interval * 5:
+            self.checking_interval = initial_checking_interval * 5
+            self.logger.info(f"Limiting checking interval to {self.checking_interval} seconds")
         return no_experiment_counter + 1
 
     def prepare_experiments(self, experiments):
@@ -294,6 +291,7 @@ class ExperimentManager:
                     self.logger.info(f"No experiments found. Waiting {self.checking_interval} seconds")
                     no_experiment_counter = self.adjust_checking_interval_and_check_run_end(no_experiment_counter, initial_checking_interval)
                 else:
+                    no_experiment_counter = 0
                     exp_in_this_loop = self.prepare_experiments(experiments)
                     
                     if exp_in_this_loop:

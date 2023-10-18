@@ -9,6 +9,5 @@ cma
 icecream
 openpyxl
 firebase-admin
-google-cloud-biquery
 pymoo
 psutil
