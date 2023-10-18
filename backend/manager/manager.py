@@ -243,13 +243,16 @@ class ExperimentManager:
             self.processes_running.remove(rmp)
         return
  
-    def adjust_checking_interval(self, no_experiment_counter, initial_checking_interval):
+    def adjust_checking_interval_and_check_run_end(self, no_experiment_counter, initial_checking_interval):
         if self.checking_interval > initial_checking_interval * 5:
             self.checking_interval = initial_checking_interval * 5
             self.logger.info(f"Limiting checking interval to {self.checking_interval} seconds")
-        if no_experiment_counter > 10:
-            self.checking_interval *= 1.5
-            self.logger.info(f"No experiments found. Increasing checking interval to {self.checking_interval} seconds")
+        if no_experiment_counter > 5:
+            # self.checking_interval *= 1.5
+            # self.logger.info(f"No experiments found. Increasing checking interval to {self.checking_interval} seconds")
+            # return 0
+            self.logger.info(f"No further experiments. Shutting down manager {self.manager_id}...")
+            self.break_experiment_listener()
             return 0
         return no_experiment_counter + 1
 
@@ -289,7 +292,7 @@ class ExperimentManager:
                 experiments = self.database.check_database_for_experiments(self.manager_id, len(self.gpus_available))
                 if len(experiments) == 0:
                     self.logger.info(f"No experiments found. Waiting {self.checking_interval} seconds")
-                    no_experiment_counter = self.adjust_checking_interval(no_experiment_counter, initial_checking_interval)
+                    no_experiment_counter = self.adjust_checking_interval_and_check_run_end(no_experiment_counter, initial_checking_interval)
                 else:
                     exp_in_this_loop = self.prepare_experiments(experiments)
                     
@@ -301,51 +304,7 @@ class ExperimentManager:
             time.sleep(max(self.checking_interval, 10))
 
     
-    # def run(self):
-    #     no_experiment_counter = 0
-    #     initial_checking_interval = self.checking_interval
-    #     while self.should_listen:
-    #         self.logger.info("Checking for finished experiment replications...")
-    #         self.check_processes()
-    #         self.handle_errors()
-    #         if self.gpu_free():
-    #             self.logger.info("Checking for new experiments to run...")
-    #             experiments = self.database.check_database_for_experiments(self.manager_id, len(self.gpus_available))
-    #             if len(experiments) == 0:
-    #                 self.logger.info(f"No experiments found. Waiting {self.checking_interval} seconds")
-    #                 no_experiment_counter += 1
-    #                 if self.checking_interval > initial_checking_interval*5:
-    #                     self.checking_interval = initial_checking_interval*5
-    #                     self.logger.info(f"Limiting checking interval to {self.checking_interval} seconds")
-    #                 if no_experiment_counter > 10:
-    #                     self.checking_interval *= 1.5
-    #                     self.logger.info(f"No experiments found. Increasing checking interval to {self.checking_interval} seconds")
-    #                     no_experiment_counter = 0
-    #             exp_in_this_loop = []
-    #             for exp in experiments:
-    #                 original_experiment = exp.to_dict()
-                    
-    #                 for i in range(1, int(original_experiment.get("replications"))- int(original_experiment.get("replications_fulfilled")) + 1 ):
-    #                     experiment = copy.deepcopy(original_experiment)
-    #                     if experiment.get("replications_fulfilled", 0) + i == experiment.get("current_replication", 0):
-    #                         continue
-    #                     else:
-    #                         experiment["experiment_id"] = exp.id
-    #                         experiment["current_replication"] = experiment.get("replications_fulfilled", 0) + i
-    #                         experiment["runner_type"] = self.identify_runner_type(experiment)
-    #                         self.sql_database.insert_experiment(experiment.get("experiment_id"), experiment.get("experiment_name"), experiment.get("replications"), experiment.get("algorithm"), experiment.get("use_case"), experiment.get("created_at"))
-    #                         exp_in_this_loop.append(experiment)
-    #             if len(exp_in_this_loop) > 0:
-    #                 self.logger.info(f"Found {len(exp_in_this_loop)} experiment replications to run")
-    #                 self.checking_interval = initial_checking_interval
-    #                 for i in range(len(self.gpus_available)):
-    #                     exp =exp_in_this_loop[i]
-    #                     if not exp.get("experiment_id") in self.last_experiment_ids:
-    #                         for l_e_id in self.last_experiment_ids:
-    #                             if not self.database.check_experiment_status(l_e_id,"done"):
-    #                                 self.database.set_experiment_status(l_e_id,"paused")
-    #                     self.run_experimentation_process(exp)
-    #         time.sleep(max(self.checking_interval,10))
+ 
 
 
 
