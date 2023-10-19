@@ -11,6 +11,22 @@ import logging
 import config
 import traceback
 from icecream import ic
+def is_multi_dimensional_array(value):
+    return isinstance(value, list) and any(isinstance(subval, list) for subval in value)
+
+def stringify_multi_dimensional_arrays(data):
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if is_multi_dimensional_array(value):
+                data[key] = str(value)
+            elif isinstance(value, (dict, list)):
+                stringify_multi_dimensional_arrays(value)  # Recursively process
+    elif isinstance(data, list):
+        for idx, value in enumerate(data):
+            if is_multi_dimensional_array(value):
+                data[idx] = str(value)
+            elif isinstance(value, (dict, list)):
+                stringify_multi_dimensional_arrays(value)  # Recursively process
 
 logger = logging.getLogger("database")
 class FirebaseManager:
@@ -114,6 +130,8 @@ class FirebaseManager:
                  
         else:
             return None
+        
+
     def write_result_to_firestore(self, experiment_id, replication, results=None):
         
         if results == None:
@@ -134,6 +152,7 @@ class FirebaseManager:
       
         try:
             best_candidate = results.get("best_candidate", results.get("best_candidat", {}))
+            stringify_multi_dimensional_arrays(best_candidate)
             doc_ref.set({"best_candidate": best_candidate})
             logger.info(f"Results written to firestore for experiment {experiment_id} Replication: {replication}")
         except Exception as e:

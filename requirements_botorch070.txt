@@ -1,0 +1,13 @@
+botorch==0.7.0
+pandas
+flask
+requests
+python-dotenv
+sqlalchemy
+numpy
+cma
+icecream
+openpyxl
+firebase-admin
+pymoo
+psutil

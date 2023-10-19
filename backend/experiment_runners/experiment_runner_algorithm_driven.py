@@ -264,6 +264,6 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
         
         self.terminate_experiment()
         results = self.save_experiment_json()
-        self.sql_database.send_local_database_to_bigquery()
+        
         return results
 

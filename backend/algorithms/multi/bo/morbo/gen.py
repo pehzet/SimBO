@@ -38,7 +38,7 @@ from .utils import (
 from torch import Tensor
 from torch.quasirandom import SobolEngine
 from icecream import ic
-
+from importlib.metadata import version
 class CandidateSelectionOutput(NamedTuple):
     X_cand: Tensor
     tr_indices: Tensor
@@ -317,7 +317,10 @@ def TS_select_batch_MORBO(trbo_state: TRBOState) -> CandidateSelectionOutput:
                             sampler=SobolQMCNormalSampler(
                                 # sample_shape=X_cand_unnormalized.size(),
                                 num_samples=1
-                            ),  # dummy sampler
+                            ) if version('botorch') == '0.7.0' else SobolQMCNormalSampler(
+                                sample_shape=X_cand_unnormalized.size(),
+                                num_samples=1
+                            ),  
                         )
                   
                         with torch.no_grad():

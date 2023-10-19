@@ -54,3 +54,6 @@ gpu_log.py
 old_managers
 other
 manager_test.py
+SimBO.db
+*.sh
+.gitignore

@@ -162,10 +162,19 @@ class OptimizationAlgorithmBridge:
             ls = np.array([])
         self.lengthscales.append(ls)
         return ls
-    def append_lengthscale_mo(self, model_list: ModelListGP):
+    def append_lengthscale_mo(self, model_list: ModelListGP|list):
         ls_arr = []
-        for m in model_list.models:
-            ls_arr.append(m.covar_module.base_kernel.lengthscale.clone().detach().tolist())
+        if isinstance(model_list, ModelListGP):
+            for m in model_list.models:
+                ls_arr.append(m.covar_module.base_kernel.lengthscale.clone().detach().tolist())
+        else:
+            # Mainly for MorBo wich has a ModelListGP for every TR
+            for mlgp in model_list:
+                inner_ls_arr = []
+                for m in mlgp.models:
+                    inner_ls_arr.append(m.covar_module.base_kernel.lengthscale.clone().detach().tolist())
+                ls_arr.append(inner_ls_arr)
+
 
         self.lengthscales.append(ls_arr)
     def get_acq_value(self, index=-1):

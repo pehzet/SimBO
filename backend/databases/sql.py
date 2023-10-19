@@ -13,9 +13,10 @@ import numpy as np
 from icecream import ic
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = config.GCLOUD_SERVICE_ACCOUNT
 logger = logging.getLogger("database")
+DB_NAME = config.DB_NAME
 class SQLManager():
     def __init__(self):
-        db_path = os.path.join(os.path.dirname(__file__), 'SimBO.db')
+        db_path = os.path.join(os.path.dirname(__file__), DB_NAME)
         self.connection = sqlite3.connect(db_path)
         self.cursor = self.connection.cursor()
         self.all_table_names = ["experiments", "runtimes", "lengthscales", "acq_values"]
@@ -99,7 +100,8 @@ class SQLManager():
     def _load_data_from_gcs_to_bigquery(self,dataset_id, table_id, gcs_path):
         bigquery_client = bigquery.Client()
         dataset_ref = bigquery_client.dataset(dataset_id)
-        job_config = bigquery.LoadJobConfig()
+        job_config = bigquery.LoadJobConfig(autodetect=True)
+
         job_config.source_format = bigquery.SourceFormat.CSV
         job_config.skip_leading_rows = 1
         job_config.autodetect = True
@@ -142,8 +144,8 @@ class SQLManager():
     def send_db_file_to_storage(self):
         try:
             bucket_name = "simbo-data"
-            source_file_path = os.path.join(os.path.dirname(__file__), 'SimBO.db')
-            destination_blob_name = "SimBO.db"
+            source_file_path = os.path.join(os.path.dirname(__file__), DB_NAME)
+            destination_blob_name = DB_NAME
             self._upload_to_gcs(bucket_name, source_file_path, destination_blob_name)
             logger.info(f"Successfully sent db file to GCS")
         except Exception as e:
@@ -153,8 +155,8 @@ class SQLManager():
     def get_db_file_from_storage(self):
         try:
             bucket_name = "simbo-data"
-            source_blob_name = "SimBO.db"
-            destination_file_name = os.path.join(os.path.dirname(__file__), 'SimBO.db')
+            source_blob_name = DB_NAME
+            destination_file_name = os.path.join(os.path.dirname(__file__), DB_NAME)
             storage_client = storage.Client()
             bucket = storage_client.bucket(bucket_name)
             blob = bucket.blob(source_blob_name)
@@ -163,3 +165,12 @@ class SQLManager():
         except Exception as e:
             logger.error(f"Error in GCS to SQLite: {e}")
             traceback.print_exc()
+    # def send_sql_db_to_storage(self):
+    #     if not db_name.endswith(".db"):
+    #         db_name += ".db"
+    #     bucket_name = "simbo-data"
+    #     # source_file_path = os.path.join(self.main_dir, db_name)
+    #     source_file_path = os.path.join(os.path.dirname(__file__), db_name)
+    #     destination_blob_name = db_name
+    #     self._upload_to_gcs(bucket_name, source_file_path, destination_blob_name)
+    #     logger.info(f"Successfully sent db file to GCS")

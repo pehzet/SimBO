@@ -173,7 +173,9 @@ class ExperimentManager:
             self.logger.info(f"Experiment finished: {exp_name} (ID: {exp_id}) ")
             self.database.set_experiment_status(exp_id, "done")
             # self.save_experiment_as_json(experiment, replication)
-
+        
+        # save database after every experiment
+        
     def save_experiment_as_json(self, experiment, replication=-1):
         path = os.path.join(self.main_dir, 'manager', 'data','experiment_' + str(experiment.get("experiment_id")))
         if not os.path.exists(path):
@@ -240,18 +242,17 @@ class ExperimentManager:
             self.processes_running.remove(rmp)
         return
  
-    def adjust_checking_interval_and_check_run_end(self, no_experiment_counter, initial_checking_interval):
+    def check_if_terminating_manager(self, no_experiment_counter, ):
         if no_experiment_counter > 5:
             # self.checking_interval *= 1.5
             # self.logger.info(f"No experiments found. Increasing checking interval to {self.checking_interval} seconds")
             # return 0
             self.logger.info(f"No further experiments. Shutting down manager {self.manager_id}...")
+            self.sql_database.send_db_file_to_storage()
             self.break_experiment_listener()
-            return 0
-        if self.checking_interval > initial_checking_interval * 5:
-            self.checking_interval = initial_checking_interval * 5
-            self.logger.info(f"Limiting checking interval to {self.checking_interval} seconds")
-        return no_experiment_counter + 1
+            return 6
+        else:
+            return no_experiment_counter + 1
 
     def prepare_experiments(self, experiments):
         exp_in_this_loop = []
@@ -278,7 +279,7 @@ class ExperimentManager:
 
     def run(self):
         no_experiment_counter = 0
-        initial_checking_interval = self.checking_interval
+
         while self.should_listen:
             self.logger.info("Checking for finished experiment replications...")
             self.check_processes()
@@ -289,14 +290,14 @@ class ExperimentManager:
                 experiments = self.database.check_database_for_experiments(self.manager_id, len(self.gpus_available))
                 if len(experiments) == 0:
                     self.logger.info(f"No experiments found. Waiting {self.checking_interval} seconds")
-                    no_experiment_counter = self.adjust_checking_interval_and_check_run_end(no_experiment_counter, initial_checking_interval)
+                    no_experiment_counter = self.check_if_terminating_manager(no_experiment_counter)
                 else:
                     no_experiment_counter = 0
                     exp_in_this_loop = self.prepare_experiments(experiments)
                     
                     if exp_in_this_loop:
                         self.logger.info(f"Found {len(exp_in_this_loop)} experiment replications to run")
-                        self.checking_interval = initial_checking_interval
+
                         self.run_prepared_experiments(exp_in_this_loop)
             
             time.sleep(max(self.checking_interval, 10))

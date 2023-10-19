@@ -12,6 +12,7 @@ from botorch.utils.sampling import draw_sobol_samples
 from .gen import (
     TS_select_batch_MORBO,
 )
+from botorch.models import ModelListGP
 from .state import TRBOState
 from .trust_region import TurboHParams
 from torch import Tensor

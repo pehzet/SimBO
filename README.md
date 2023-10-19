@@ -1,6 +1,6 @@
 # SimBO
 Simulation Based Optimization in Python using Model-based Optimization Algorithms
-
+The Bayesian Optimization Algorithms run with botorch. Normally the newest version of botorch works, except of MorBO, here we need botorch 0.7.0.
 ## Setup and run experiments
 
 **Step 1**: Install requirement.txt (ATTENTION! No Versions provided - will install the newest):
@@ -17,7 +17,7 @@ BUCKET = "SET YOUR BUCKET NAME HERE"
 BIGQUERY_DATASET = "SET YOUR BIGQUERY DATASET NAME HERE"
 GCLOUD_PROJECT = "SET YOUR GCLOUD PROJECT NAME HERE"
 GCLOUD_SERVICE_ACCOUNT = "SET YOUR GCLOUD SERVICE ACCOUNT PATH HERE"
-
+DB_NAME = "YOU DB NAME"
 
 **Step 3:** initialize database with:
 

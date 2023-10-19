@@ -131,17 +131,17 @@ class ExperimentRunner():
         
         # SINGLE OBJECTIVE
         if self.algorithm == "turbo":
-            self.check_botorch_version()
+            # self.check_botorch_version()
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default", "nan", NaN] else "fngp"
             return TurboRunner(self.experiment_id, self.replication, dim,batch_size,constraints, num_init=init_arms, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "gpei":
-            self.check_botorch_version()
+            # self.check_botorch_version()
             sm = algorithm_config.get("sm") if algorithm_config.get("sm") not in ["None", None, "default", "Default","nan", NaN] else "stgp"
             return GPEIRunner(self.experiment_id, self.replication, dim,batch_size, constraints, init_arms, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"],sm=sm)
         
         if self.algorithm == "saasbo":
-            self.check_botorch_version()
+            # self.check_botorch_version()
             warmup_steps = algorithm_config.get("warmup_steps", 512)
             num_samples = algorithm_config.get("num_samples", 256)
             thinning = algorithm_config.get("thinning", 16)
@@ -156,16 +156,16 @@ class ExperimentRunner():
         # MULTI OBJECTIVE
         if self.algorithm in ["morbo", "MORBO"]:
             botorch_version = "0.7.0"
-            self.check_botorch_version(botorch_version)
+            # self.check_botorch_version(botorch_version)
             
             ref_point = self.use_case_runner.get_ref_point()
             return MorboRunner(self.experiment_id, self.replication, dim, batch_size, algorithm_config.get("n_trust_regions", algorithm_config.get("num_trs", 1)), objectives, ref_point, constraints, eval_budget=self.eval_budget, num_init=init_arms, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         if self.algorithm in ["saasmo", "SAASMO"]:
-            self.check_botorch_version("0.9.2")
+            # self.check_botorch_version("0.9.2")
             ref_point = self.use_case_runner.get_ref_point()
             return SAASMORunner(self.experiment_id, self.replication, dim, batch_size, objectives, ref_point, constraints, algorithm_config.get("warmup_steps", 512), algorithm_config.get("num_samples", 256), algorithm_config.get("thinning", 16),  num_init=init_arms, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         if self.algorithm in ["qnehvi", "qNEHVI"]:
-            self.check_botorch_version()
+            # self.check_botorch_version()
             ref_point = self.use_case_runner.get_ref_point()
             # ref_point = torch.tensor(ref_point) if ref_point != None and ref_point != "" else None
             return QNEHVIRunner(self.experiment_id, self.replication, dim, batch_size, objectives, ref_point, constraints, num_init=init_arms, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"], sm=algorithm_config.get("sm", "hsgp"))
@@ -179,7 +179,7 @@ class ExperimentRunner():
             return MOEADRunner(self.experiment_id, self.replication, dim, batch_size, objectives, constraints, param_names = param_names,eval_budget=self.eval_budget, num_init=init_arms, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         
         if self.algorithm == "sobol":
-            self.check_botorch_version()
+            # self.check_botorch_version()
             return SobolRunner(self.experiment_id, self.replication,dim,batch_size=1, num_init=1, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         
         if self.algorithm in ["brute_force", "bruteforce"]:
