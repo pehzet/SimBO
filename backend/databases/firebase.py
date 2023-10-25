@@ -35,7 +35,7 @@ class FirebaseManager:
             self.main_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
         else:
             self.main_dir = main_dir
-        self.fb_key_name = config.FIREBASE_CONFIG
+        self.fb_key_name = os.path.join(self.main_dir,config.FIREBASE_CONFIG)
         self.app = self.init_firebase()
         self.db = self.init_firestore()
         self.bucket = self.init_storage()

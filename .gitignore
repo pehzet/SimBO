@@ -57,3 +57,5 @@ manager_test.py
 SimBO.db
 *.sh
 .gitignore
+*.db
+*.txt

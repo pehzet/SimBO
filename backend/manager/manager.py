@@ -254,6 +254,7 @@ class ExperimentManager:
         else:
             return no_experiment_counter + 1
 
+
     def prepare_experiments(self, experiments):
         exp_in_this_loop = []
         for exp in experiments:
@@ -297,7 +298,6 @@ class ExperimentManager:
                     
                     if exp_in_this_loop:
                         self.logger.info(f"Found {len(exp_in_this_loop)} experiment replications to run")
-
                         self.run_prepared_experiments(exp_in_this_loop)
             
             time.sleep(max(self.checking_interval, 10))
