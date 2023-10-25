@@ -39,7 +39,7 @@ warnings.filterwarnings("ignore", message="Could not import matplotlib.pyplot")
 warnings.filterwarnings(
     "ignore", message="torch.triangular_solve is deprecated")
 
-def send_experiment_to_runner(experiment, replication, tkwargs):
+def send_experiment_to_runner(experiment, replication, tkwargs, main_dir=None):
     exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
     exp_id = experiment.get("experiment_id")
     logger = logging.getLogger(f"experiment_{exp_id}")
@@ -51,7 +51,7 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
     tkwargs["logging_fh"] = fh
     logger.addHandler(fh)
     results = None
-    main_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    main_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir)) if main_dir is None else main_dir
     try:
         runner_type = experiment.get("runner_type")
         if runner_type == "simulation":
@@ -77,14 +77,14 @@ def send_experiment_to_runner(experiment, replication, tkwargs):
 
 
 class ExperimentManager:
-    def __init__(self, manager_id, checking_interval=60, db=None, num_parallel_experiments=-1):
+    def __init__(self, manager_id, checking_interval=60, main_dir=None, db=None, num_parallel_experiments=-1):
         self.manager_id = manager_id
         self.checking_interval = int(checking_interval)
         self.experiments_queue = Queue()
         self.experiments_running = Queue()
         
         self.processes_running = []
-        self.main_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))  # r"C:\code\SimBO"
+        self.main_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir)) if main_dir == None else main_dir 
         self.database = db if db is not None else FirebaseManager(self.main_dir)
         self.sql_database = SQLManager()
         self.last_check = None
@@ -124,7 +124,7 @@ class ExperimentManager:
         self.experiments_running.put(experiment)
         gpu = self.gpus_available.pop(0)
         try:
-            p = mp.Process(target=send_experiment_to_runner, args=(experiment, current_replication, tkwargs, ))
+            p = mp.Process(target=send_experiment_to_runner, args=(experiment, current_replication, tkwargs, self.main_dir))
             p.start()
             process_dict = {
                 "experiment_id": exp_id,
