@@ -40,6 +40,7 @@ warnings.filterwarnings(
     "ignore", message="torch.triangular_solve is deprecated")
 
 def send_experiment_to_runner(experiment, replication, tkwargs, main_dir=None):
+    ic(main_dir)
     exp_name = experiment.get("experiment_name", experiment.get("experiment_id"))
     exp_id = experiment.get("experiment_id")
     logger = logging.getLogger(f"experiment_{exp_id}")
@@ -84,7 +85,7 @@ class ExperimentManager:
         self.experiments_running = Queue()
         
         self.processes_running = []
-        self.main_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir)) if main_dir == None else main_dir 
+        self.main_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) if main_dir == None else main_dir 
         self.database = db if db is not None else FirebaseManager(self.main_dir)
         self.sql_database = SQLManager()
         self.last_check = None
@@ -155,13 +156,11 @@ class ExperimentManager:
         exp_id = experiment.get("experiment_id")
 
         if failed:
-
             _experiment = self.experiments_running.get(experiment)
             self.logger.error(f"Experiment failed: {exp_name} (ID: {exp_id}) ")
             self.database.set_experiment_status(exp_id, "failed")
             self.save_experiment_as_json(experiment, replication)
         elif aborted:
-
             _experiment = self.experiments_running.get(experiment)
             self.logger.error(f"Experiment aborted: {exp_name} (ID: {exp_id}) ")
             self.database.set_experiment_status(exp_id, "aborted")

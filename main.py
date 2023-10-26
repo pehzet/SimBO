@@ -87,5 +87,5 @@ if __name__ == "__main__":
 
     mp.Process(target=log_gpu_usage).start() 
 
-    EM = ExperimentManager(manager_id, exp_manager.get("default_interval", 30), db = database)
+    EM = ExperimentManager(manager_id, exp_manager.get("default_interval", 30), main_dir=project_root, db = database)
     EM.run()
