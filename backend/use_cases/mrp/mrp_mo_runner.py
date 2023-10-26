@@ -44,18 +44,18 @@ class MRPMORunner():
     def create_constraints(self):
         return None
 
-    def get_ref_point(self, bom_id):
-        bom_id = str(bom_id)
+    def get_ref_point(self):
+        bom_id = str(self.bom_id)
         if bom_id == "4":
-            return torch.tensor([25000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-25000,0.95]).to(tkwargs["device"])
         elif bom_id == "10":
-            return torch.tensor([47000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-47000,0.95]).to(tkwargs["device"])
         elif bom_id == "20":
-            return torch.tensor([53000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-53000,0.95]).to(tkwargs["device"])
         elif bom_id == "50":
-            return torch.tensor([280000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-280000,0.95]).to(tkwargs["device"])
         elif bom_id == "100":
-            return torch.tensor([750000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-750000,0.95]).to(tkwargs["device"])
         
 
     def eval(self, x,):

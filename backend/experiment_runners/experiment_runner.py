@@ -155,9 +155,8 @@ class ExperimentRunner():
         
         # MULTI OBJECTIVE
         if self.algorithm in ["morbo", "MORBO"]:
-            botorch_version = "0.7.0"
+            # botorch_version = "0.7.0"
             # self.check_botorch_version(botorch_version)
-            
             ref_point = self.use_case_runner.get_ref_point()
             return MorboRunner(self.experiment_id, self.replication, dim, batch_size, algorithm_config.get("n_trust_regions", algorithm_config.get("num_trs", 1)), objectives, ref_point, constraints, eval_budget=self.eval_budget, num_init=init_arms, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         if self.algorithm in ["saasmo", "SAASMO"]:
