@@ -124,7 +124,7 @@ class ExperimentManager:
         self.experiments_running.put(experiment)
         gpu = self.gpus_available.pop(0)
         try:
-            p = mp.Process(target=send_experiment_to_runner, args=(experiment, current_replication, tkwargs, self.main_dir))
+            p = mp.Process(target=send_experiment_to_runner, args=(experiment, current_replication, tkwargs), kwargs={"main_dir": self.main_dir})
             p.start()
             process_dict = {
                 "experiment_id": exp_id,
