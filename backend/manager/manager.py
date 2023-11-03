@@ -5,6 +5,7 @@ try:
 except RuntimeError:
    pass
 import os
+import signal
 from icecream import ic
 import sys
 
@@ -185,7 +186,10 @@ class ExperimentManager:
 
     def break_experiment_listener(self):
         self.should_listen = False
-
+        if os.name == 'posix':  
+            current_pid = os.getpid()
+            os.killpg(os.getpgid(current_pid), signal.SIGTERM) 
+        sys.exit(0)
     def identify_runner_type(self, experiment):
         if experiment.get("use_case", "").lower() in ["mrp", "dummy", "mrp_mo","mrpmo"]:
             rt = "algorithm"
@@ -242,7 +246,10 @@ class ExperimentManager:
         return
  
     def check_if_terminating_manager(self, no_experiment_counter, ):
-        if no_experiment_counter > 5:
+        '''
+        Terminates Manager after 3 unsuccessful checks for experiments.
+        '''
+        if no_experiment_counter > 3:
             # self.checking_interval *= 1.5
             # self.logger.info(f"No experiments found. Increasing checking interval to {self.checking_interval} seconds")
             # return 0
