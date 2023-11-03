@@ -32,9 +32,9 @@ class SAASMORunner(OptimizationAlgorithmBridge):
         super().__init__(experiment_id, replication, dim, batch_size, constraints, num_init, device, dtype)
         self.sm = "saasgp" 
         self.acqf = "qNEHVI" 
-        self.warmup_steps: int = warmup_steps
-        self.num_samples: int = num_samples
-        self.thinning: int = thinning
+        self.warmup_steps: int = int(warmup_steps)
+        self.num_samples: int = int(num_samples)
+        self.thinning: int = int(thinning)
 
         self.batch_size = batch_size
         self.Y_feas = None

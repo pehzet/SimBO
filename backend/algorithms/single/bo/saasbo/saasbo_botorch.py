@@ -19,9 +19,9 @@ class SaasboRunner(OptimizationAlgorithmBridge):
         super().__init__(experiment_id, replication, dim, batch_size, constraints, num_init, device, dtype)
         self.sm = "saasgp" # TODO: make configuable later
         self.acqf = "qEI" # TODO: make configuable later
-        self.warmup_steps: int = warmup_steps
-        self.num_samples: int = num_samples
-        self.thinning: int = thinning
+        self.warmup_steps: int = int(warmup_steps)
+        self.num_samples: int = int(num_samples)
+        self.thinning: int = int(thinning)
 
         self.logger.info(f"Running on device: {device}")
 

@@ -46,18 +46,28 @@ class MRPMORunner():
 
     def get_ref_point(self):
         bom_id = str(self.bom_id)
+        # if bom_id == "4":
+        #     return torch.tensor([-25000,0.95]).to(tkwargs["device"])
+        # elif bom_id == "10":
+        #     return torch.tensor([-47000,0.95]).to(tkwargs["device"])
+        # elif bom_id == "20":
+        #     return torch.tensor([-53000,0.95]).to(tkwargs["device"])
+        # elif bom_id == "50":
+        #     return torch.tensor([-280000,0.95]).to(tkwargs["device"])
+        # elif bom_id == "100":
+        #     return torch.tensor([-750000,0.95]).to(tkwargs["device"])
+        # 2023-11-03: Adjustet ref points. Before it was one of the best. Increased so HV will not be 0.0
         if bom_id == "4":
-            return torch.tensor([-25000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-45000,0.95]).to(tkwargs["device"])
         elif bom_id == "10":
-            return torch.tensor([-47000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-87000,0.95]).to(tkwargs["device"])
         elif bom_id == "20":
-            return torch.tensor([-53000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-103000,0.95]).to(tkwargs["device"])
         elif bom_id == "50":
-            return torch.tensor([-280000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-380000,0.95]).to(tkwargs["device"])
         elif bom_id == "100":
-            return torch.tensor([-750000,0.95]).to(tkwargs["device"])
+            return torch.tensor([-990000,0.95]).to(tkwargs["device"])
         
-
     def eval(self, x,):
 
         x = self.transform_x(x)
@@ -337,7 +347,6 @@ class MRPMORunner():
         pm_name = [pm.get("name") for pm in self.param_meta]
 
         fi = tensor(fi).to(tkwargs.get("device"))
-        ic(fi.ndim)
         if fi.ndim == 1:
             fi = fi.tolist()
             ic([dict((k,v) for k,v in zip(pm_name, fi))])
@@ -348,7 +357,6 @@ class MRPMORunner():
             _fi = _fi.tolist()
             fi_dict = dict((k,v) for k,v in zip(pm_name, _fi))
             fi_per_trial.append(fi_dict)
-        ic(fi_per_trial)
         return fi_per_trial
 
     def run_solver(self, params):
