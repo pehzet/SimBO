@@ -5,6 +5,9 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.transforms.outcome import Standardize
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+# from pymoo.factory import get_performance_indicator
+from pymoo.indicators.hv import HV as HVEA
 from torch.quasirandom import SobolEngine
 from pathlib import Path
 import pickle
@@ -46,7 +49,10 @@ class OptimizationAlgorithmBridge:
         self.eval_runtimes = []
         self.fit_runtimes = []
         self.gen_runtimes = []
-
+        self.pareto_X = []
+        self.pareto_Y = []
+        self.ref_point = None
+        self.hvs = []
         self.seed = None
         self.eval_budget = None
         self.tkwargs = {"dtype": dtype, "device": device}
@@ -212,6 +218,17 @@ class OptimizationAlgorithmBridge:
         return value - bound if constraint_type == "ieq" else torch.where(value==bound, torch.tensor(1), torch.tensor(-1)) 
             
       
+    def compute_hv_ea(self, X, F):
+        nds = NonDominatedSorting().do(F, only_non_dominated_front=True)
+        pareto_front = F[nds]
+        pareto_x = X[nds]
+        self.pareto_Y.append(pareto_front)
+        self.pareto_X.append(pareto_x)
+        ref_point = - self.ref_point
+        ref_point = ref_point.tolist()
+        hvea = HVEA(ref_point=ref_point)
+        hv = hvea(pareto_front)
+        return hv
 
 
 

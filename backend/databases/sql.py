@@ -10,6 +10,7 @@ import os
 import logging
 import traceback
 import numpy as np
+from torch import Tensor
 from icecream import ic
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = config.GCLOUD_SERVICE_ACCOUNT
 logger = logging.getLogger("database")
@@ -75,6 +76,46 @@ class SQLManager():
         self.cursor.execute(query, (experiment_id, replication, trial, acq_values, last_updated_at))
         self.connection.commit()
     
+    def insert_x_and_y(self, experiment_id, replication, trial, X, Y):
+        query = """
+        INSERT INTO x_and_y (experiment_id, replication, trial, x, y, last_updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """
+        if isinstance(X, (np.ndarray,Tensor)):
+            X = X.tolist()
+        if isinstance(Y, (np.ndarray,Tensor)):
+            Y = Y.tolist()
+        X = json.dumps(X)
+        Y = json.dumps(Y)
+        last_updated_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.cursor.execute(query, (experiment_id, replication, trial, X, Y, last_updated_at))
+        self.connection.commit()
+    
+    def insert_pareto(self, experiment_id, replication, trial, pareto_X, pareto_Y):
+        query = """
+        INSERT INTO pareto (experiment_id, replication, trial, pareto_x, pareto_y, last_updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """
+        if isinstance(pareto_X, (np.ndarray,Tensor)):
+            pareto_X = pareto_X.tolist()
+        if isinstance(pareto_Y, (np.ndarray,Tensor)):
+            pareto_Y = pareto_Y.tolist()
+
+        pareto_X = json.dumps(pareto_X)
+        pareto_Y = json.dumps(pareto_Y)
+        last_updated_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.cursor.execute(query, (experiment_id, replication, trial, pareto_X, pareto_Y, last_updated_at))
+        self.connection.commit()
+
+    def insert_hv(self, experiment_id, replication, trial, hv):
+        query = """
+        INSERT INTO hv (experiment_id, replication, trial, hv, last_updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        """
+        last_updated_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.cursor.execute(query, (experiment_id, replication, trial, hv, last_updated_at))
+        self.connection.commit()
+
     def close_connection(self):
         self.connection.close()
 

@@ -200,7 +200,7 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
                 if self.algorithm == "brute_force":
                     self.log_x_and_y(x,_y)
         self.eval_runtimes.append(eval_runtimes)
-        self.log_trial_data()
+        # self.log_trial_data()
 
         self.append_candidate_to_candidates_list(x,_y)
         y, ysem = self.use_case_runner.transform_y_to_tensors_mean_sem(_y)

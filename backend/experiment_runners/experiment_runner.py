@@ -169,9 +169,10 @@ class ExperimentRunner():
             # ref_point = torch.tensor(ref_point) if ref_point != None and ref_point != "" else None
             return QNEHVIRunner(self.experiment_id, self.replication, dim, batch_size, objectives, ref_point, constraints, num_init=init_arms, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"], sm=algorithm_config.get("sm", "hsgp"))
         if self.algorithm in ["nsga2", "NSGA2"]:
+            ref_point = self.use_case_runner.get_ref_point()
             param_meta = self.use_case_runner.get_param_meta()
             param_names = [p["name"] for p in param_meta]
-            return NSGA2Runner(self.experiment_id, self.replication, dim, batch_size, objectives, constraints, param_names = param_names,eval_budget=self.eval_budget, num_init=init_arms, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
+            return NSGA2Runner(self.experiment_id, self.replication, dim, batch_size, objectives, constraints, param_names = param_names,eval_budget=self.eval_budget, num_init=init_arms,ref_point=ref_point, device=self.tkwargs["device"], dtype=self.tkwargs["dtype"])
         if self.algorithm in ["moead", "MOEAD"]:
             param_meta = self.use_case_runner.get_param_meta()
             param_names = [p["name"] for p in param_meta]
@@ -274,9 +275,24 @@ class ExperimentRunner():
         self.sql_database.insert_runtime(self.experiment_id, self.replication, self.current_trial, gt, ft, et)
         ls = self.algorithm_runner.lengthscales[-1] if len(self.algorithm_runner.lengthscales) > 0 else None
         self.sql_database.insert_lengthscale(self.experiment_id, self.replication, self.current_trial, ls)
-        av = self.algorithm_runner.acq_values[-1] if len(self.algorithm_runner.acq_values) > 0  else None
-        self.sql_database.insert_acq_values(self.experiment_id, self.replication, self.current_trial, av)
+        x = self.algorithm_runner.X[-self.algorithm_runner.batch_size:] if len(self.algorithm_runner.X) > 0 else None
+        y = self.algorithm_runner.Y[-self.algorithm_runner.batch_size:] if len(self.algorithm_runner.Y) > 0 else None
+        self.sql_database.insert_x_and_y(self.experiment_id, self.replication, self.current_trial, x, y)
+        # if self.algorithm_runner.is_ea:
+        #     hv = self.algorithm_runner.hvs[-1] if len(self.algorithm_runner.hvs) > 0 else None
+        #     self.sql_database.insert_hv(self.experiment_id, self.replication, self.current_trial, hv)
+        #     return
+        if self.algorithm_runner.is_moo:
+            px = self.algorithm_runner.pareto_X[-1] if len(self.algorithm_runner.pareto_X) > 0 else None
+            py = self.algorithm_runner.pareto_Y[-1] if len(self.algorithm_runner.pareto_Y) > 0 else None
+            self.sql_database.insert_pareto(self.experiment_id, self.replication, self.current_trial, px, py)
+            hv = self.algorithm_runner.hvs[-1] if len(self.algorithm_runner.hvs) > 0 else None
+            self.sql_database.insert_hv(self.experiment_id, self.replication, self.current_trial, hv)
+        else:
 
+            # MO Algorithm got no acq values
+            av = self.algorithm_runner.acq_values[-1] if len(self.algorithm_runner.acq_values) > 0  else None
+            self.sql_database.insert_acq_values(self.experiment_id, self.replication, self.current_trial, av)
     def terminate_experiment(self):
         if self.is_moo:
             # STRUGGLE WITH MORBO; Can't pickle local object 'get_outcome_constraint_transforms; TODO: FIX 
@@ -343,6 +359,8 @@ class ExperimentRunner():
         return obj
 
     def identity_best_in_trial(self):
+        if self.algorithm_runner.is_ea:
+            return
         new_best_found = False
         if self.algorithm_runner.is_moo:
             if self.algorithm_runner.pareto_Y is not None:
