@@ -45,7 +45,11 @@ class NSGA2Runner(OptimizationAlgorithmBridge):
         return self.X_next
     def complete(self, y, yvar=None):
         # SimBO (and BoTorch) default is maximize, so we need to flip the sign
-        y = - np.array(y)
+        if isinstance(y, torch.Tensor):
+            y = - y
+            y.detach().cpu().numpy()
+        else:
+            y = - np.array(y)
         y_with_con = None
         # for Parameter Constraints
         # TODO: Outcome Constraints
