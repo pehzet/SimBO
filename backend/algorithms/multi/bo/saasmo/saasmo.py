@@ -51,8 +51,8 @@ class SAASMORunner(OptimizationAlgorithmBridge):
         self.con_next = None
         self.standard_bounds = torch.zeros(2, self.dim, device=self.device, dtype=self.dtype)
         self.standard_bounds[1] = 1
-        self.pareto_x = None
-        self.pareto_y = None
+        self.pareto_X = None
+        self.pareto_Y = None
     def initialize_model(self, train_x, train_y, train_Y_var, train_con=None, sm="stgp"):
         if train_con:
             train_y = torch.cat([train_y, train_con], dim=-1)
@@ -148,8 +148,8 @@ class SAASMORunner(OptimizationAlgorithmBridge):
             pareto_mask = is_non_dominated(self.Y_feas)
             pareto_y = self.Y_feas[pareto_mask]
             pareto_x = self.X_feas[pareto_mask]
-            self.pareto_y = pareto_y if self.pareto_y is None else torch.cat([self.pareto_y, pareto_y], dim=0)
-            self.pareto_x = pareto_x if self.pareto_x is None else torch.cat([self.pareto_x, pareto_x], dim=0)
+            self.pareto_Y = pareto_y if self.pareto_Y is None else torch.cat([self.pareto_Y, pareto_y], dim=0)
+            self.pareto_X = pareto_x if self.pareto_X is None else torch.cat([self.pareto_X, pareto_x], dim=0)
             # compute feasible hypervolume
             volume = self.hv.compute(pareto_y)
             print(f"new Hypervolume: {volume}")

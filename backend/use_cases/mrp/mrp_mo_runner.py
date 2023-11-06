@@ -349,7 +349,6 @@ class MRPMORunner():
         fi = tensor(fi).to(tkwargs.get("device"))
         if fi.ndim == 1:
             fi = fi.tolist()
-            ic([dict((k,v) for k,v in zip(pm_name, fi))])
             return [dict((k,v) for k,v in zip(pm_name, fi))]
   
         fi_per_trial = []

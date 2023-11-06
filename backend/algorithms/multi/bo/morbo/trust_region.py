@@ -154,7 +154,7 @@ class TurboHParams:
     pred_batch_limit: int = 1024
     infer_reference_point: bool = True# was: False
     fit_gpytorch_options: Optional[Dict[str, Any]] = None  # {"maxiter": 50}
-    restart_hv_scalarizations: bool = False
+    restart_hv_scalarizations: bool = True
 
     @classmethod
     def from_dict(cls, tr_hparams: Dict) -> None:

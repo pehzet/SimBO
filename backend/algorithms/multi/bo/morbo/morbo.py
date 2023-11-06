@@ -124,6 +124,8 @@ class MorboRunner(OptimizationAlgorithmBridge):
                     # generate new point
                     X_center = self.trbo_state.gen_new_restart_design()
                     all_X_centers.append(X_center)
+        if len(all_X_centers) == 0:
+            return self.suggest_initial()
         return torch.cat(all_X_centers, dim=0)
 
 

@@ -327,7 +327,6 @@ class ExperimentRunner():
         ffolder = os.path.join("data", "experiment_" + str(self.experiment_id))
         fpath = os.path.join(ffolder, "experiment_" + str(self.experiment_id) +"_"+str(self.replication) + ".json")
 
-        ic(obj)
         if not os.path.exists(ffolder):
             Path(ffolder).mkdir(parents=True, exist_ok=True)
         with open(fpath, 'w+') as fo:
