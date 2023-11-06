@@ -225,7 +225,10 @@ class OptimizationAlgorithmBridge:
         self.pareto_Y.append(pareto_front)
         self.pareto_X.append(pareto_x)
         ref_point = - self.ref_point
-        ref_point = ref_point.tolist()
+        if isinstance(ref_point, torch.Tensor):
+            ref_point = ref_point.detach().cpu().numpy().tolist()
+        else:
+            ref_point = ref_point.tolist()
         hvea = HVEA(ref_point=ref_point)
         hv = hvea(pareto_front)
         return hv
