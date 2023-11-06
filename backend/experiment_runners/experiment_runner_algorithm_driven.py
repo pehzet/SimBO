@@ -245,7 +245,7 @@ class ExperimentRunnerAlgorithmDriven(ExperimentRunner):
             self.append_candidate_to_candidates_list(x,_y)
             y, ysem = self.use_case_runner.transform_y_to_tensors_mean_sem(_y)
             self.algorithm_runner.complete(y, yvar = ysem)
-            self.identity_best_in_trial()
+            # self.identity_best_in_trial()
             _end_trial = time.monotonic()
             self.trial_runtimes.append((_end_trial- _start_trial))
             self.eval_budget -= len(x)

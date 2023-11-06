@@ -359,6 +359,9 @@ class ExperimentRunner():
         return obj
 
     def identity_best_in_trial(self):
+        '''
+        errors at implemention with mo and ea. Will be solved later
+        '''
         if self.algorithm_runner.is_ea:
             return
         new_best_found = False
