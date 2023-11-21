@@ -92,7 +92,7 @@ class MorboRunner(OptimizationAlgorithmBridge):
 
         self.is_init = True
         self.n_evals = []
-        self.true_hv = []
+        self.hvs = []
         self.pareto_X = []
         self.pareto_Y = []
         self.n_points_in_tr = [[] for _ in range(n_trust_regions)]
@@ -230,11 +230,11 @@ class MorboRunner(OptimizationAlgorithmBridge):
             self.pareto_X_next = self.trbo_state.pareto_X.tolist()
             self.pareto_Y_next = self.trbo_state.pareto_Y.tolist()
 
-            self.true_hv.append(hv)
+            self.hvs.append(hv)
         else:
             self.pareto_X_next = []
             self.pareto_Y_next = []
-            self.true_hv.append(0.0)
+            self.hvs.append(0.0)
         self.pareto_X.append(self.pareto_X_next)
         self.pareto_Y.append(self.pareto_Y_next)
         # LOGGING
