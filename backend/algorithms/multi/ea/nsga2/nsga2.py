@@ -4,6 +4,7 @@ from pymoo.core.problem import Problem
 from pymoo.core.evaluator import Evaluator
 import numpy as np
 import torch
+from torch import tensor
 import time
 from pymoo.core.termination import NoTermination
 from pymoo.problems.static import StaticProblem
@@ -45,9 +46,9 @@ class NSGA2Runner(OptimizationAlgorithmBridge):
         return self.X_next
     def complete(self, y, yvar=None):
         # SimBO (and BoTorch) default is maximize, so we need to flip the sign
-        if isinstance(y, torch.Tensor):
+        if torch.is_tensor(y):
             y = - y
-            y.detach().cpu().numpy()
+            y = y.cpu().numpy()
         else:
             y = - np.array(y)
         y_with_con = None
@@ -57,7 +58,9 @@ class NSGA2Runner(OptimizationAlgorithmBridge):
             for c in self.constraints:
                 y.append([c(x) for x in self.X_next])
             y_with_con = np.column_stack(y)
+
         static = StaticProblem(self.problem, F=y_with_con if y_with_con is not None else y )
+        
         Evaluator().eval(static, self.pop_next)
         self.nsga.tell(infills=self.pop_next)
         if self.ref_point is not None:

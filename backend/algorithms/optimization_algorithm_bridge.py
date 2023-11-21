@@ -7,7 +7,7 @@ from botorch.models.transforms.outcome import Standardize
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 # from pymoo.factory import get_performance_indicator
-from pymoo.indicators.hv import HV as HVEA
+from pymoo.indicators.hv import Hypervolume as HVEA
 from torch.quasirandom import SobolEngine
 from pathlib import Path
 import pickle

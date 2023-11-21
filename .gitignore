@@ -59,3 +59,4 @@ SimBO.db
 .gitignore
 *.db
 *.txt
+backend/databases/SimBO.db

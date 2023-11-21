@@ -1,5 +1,5 @@
 import cma
-from cma import CMAEvolutionStrategy
+# from cma import CMAEvolutionStrategy
 import torch
 import numpy as np
 from backend.algorithms.optimization_algorithm_bridge import OptimizationAlgorithmBridge

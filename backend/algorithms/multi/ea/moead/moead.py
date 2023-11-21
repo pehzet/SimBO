@@ -20,7 +20,7 @@ from pymoo.core.problem import Problem
 from pymoo.core.evaluator import Evaluator
 from pymoo.core.termination import NoTermination
 from pymoo.problems.static import StaticProblem
-from pymoo.factory import get_reference_directions
+from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.core.population import Population
 import numpy as np
 import torch
